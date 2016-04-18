@@ -20,6 +20,7 @@ Quick start
         'django_userforeignkey',
         'django_changeset',
     ]
+    
 
 2. Add "django_userforeignkey.middleware.UserForeignKeyMiddleware" to your MIDDLEWARE_CLASSES settings like this:
 
@@ -30,6 +31,7 @@ Quick start
         ...
         'django_userforeignkey.middleware.UserForeignKeyMiddleware',
     )
+    
 
   Make sure to insert the "django_userforeignkey" middleware after the authentication middleware.
 
@@ -79,6 +81,7 @@ You can access the changeset by calling the "change_set" property of an instance
         # change_set.created_at, change_set.created_by, change_set.last_modified_by, change_set.last_modified_at
 
         print("-----")
+
 
 Known problems
 --------------
