@@ -20,6 +20,7 @@ django_userforeignkey):
 
 .. code-block:: bash
 
+    pip install git+https://github.com/beachmachine/django-userforeignkey.git
     pip install git+https://github.com/beachmachine/django-changeset.git
 
 
