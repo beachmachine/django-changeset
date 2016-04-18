@@ -124,7 +124,7 @@ class ChangeRecord(models.Model):
 
             return None
 
-    def _get_field(self):
+    def _get_field(self, supress_warning=False):
         model_class = self.change_set.object_type.model_class()
 
         # try to find the field for the records field_name
@@ -133,7 +133,8 @@ class ChangeRecord(models.Model):
                 return field
 
         # no field for the field_name found
-        logger.warning(u"Field for this change record does not exist on model '%s'." % force_text(model_class))
+        if not supress_warning:
+            logger.warning(u"Field for this change record does not exist on model '%s'." % force_text(model_class))
 
         return None
 
@@ -151,7 +152,7 @@ class ChangeRecord(models.Model):
         return None
 
     def _get_related_class(self):
-        field = self._get_field()
+        field = self._get_field(supress_warning=True) # get the field, but dont log a warning
         if field:
             return field.rel.to
 
