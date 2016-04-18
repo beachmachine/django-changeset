@@ -3,8 +3,8 @@ Django ChangeSet
 ================
 
 Django ChangeSet is a simple Django app that will give your models the possibility to track all changes. It depends on
- "django_userforeignkey" to determine the users doing the changes. It is compatible with Django 1.8 and 1.9, and runs
- with both, Python 2.7+ and 3.4+.
+"django_userforeignkey" to determine the users doing the changes. It is compatible with Django 1.8 and 1.9, and runs
+with both, Python 2.7+ and 3.4+.
 
 Getting Started
 ---------------
@@ -122,7 +122,7 @@ Accessing the Changeset
 -----------------------
 
 You can access the changeset simply by calling the "change_set" property of an instance of "MyModel" as shown in the
- following example:
+following example:
 
 .. code-block:: python
 
