@@ -2,20 +2,15 @@
 Django ChangeSet
 ================
 
-.. image:: https://travis-ci.org/beachmachine/django-changeset.svg?branch=master
-    :target: https://travis-ci.org/beachmachine/django-changeset
-
 Django ChangeSet is a simple Django app that will give your models the possibility to track all changes. It depends on
-``django_userforeignkey`` to determine the users doing the changes. It is compatible with Django 1.8 and 1.9, and runs
+"django_userforeignkey" to determine the users doing the changes. It is compatible with Django 1.8 and 1.9, and runs
 with both, Python 2.7+ and 3.4+.
 
-Detailed documentation is in the "docs" directory.
-
-Quick start
------------
+Getting Started
+---------------
 
 1. Use ``pip`` to install and download django-changeset (will automatically resolve the dependency on
-django_userforeignkey):
+``django_userforeignkey``):
 
 .. code-block:: bash
 
@@ -48,10 +43,42 @@ django_userforeignkey):
   Make sure to insert the ``django_userforeignkey`` middleware **after** the authentication middleware.
 
 
-Example usage
--------------
+4. In your models, you need to use ``RevisionModelMixin`` as a mixin class all models that you want to track. This will do two things:
 
-Use ``RevisionModelMixin`` as a mixin class for your models and add the fields you want to track in the meta configuration:
+  - Your object will be tracked based on the config defined in the meta class (using ``track_by``, ``track_fields`` and ``track_related``)
+  - Your object will be extended with properties that allow you to access the changeset/revisions (e.g., ``change_sets``, ``created_by``, ``created_at``, ...)
+
+
+Configuration
+-------------
+By using the attributes ``track_by``, ``track_fields`` and ``track_related`` you can define which attributes of your
+model should be tracked.
+
+* ``track_by`` is an optional field which you should use when you specify which allows you to specify which field
+  should be used as the primary key
+* ``track_fields`` is a required field. By providing a list you can specify which fields should be tracked.
+* ``track_related`` is an optional field for tracking changes on related models, by providing a dictionary with the
+  attribute name and the related names,.
+
+*Example 1 (without specifying primary key):*
+
+.. code-block:: python
+
+    from django.db import models
+    from django_changeset.models import RevisionModelMixin
+
+    class MyModel(models.Model, RevisionModelMixin):
+        class Meta:
+            track_fields = ('my_data', )
+            track_related = {
+                'my_ref': 'my_models', # where 'my_ref' is the local attribute name, and 'my_models' is the related name (see below)
+            }
+
+        my_data = models.CharField(max_length=64, verbose_name="Very important data you want to track")
+        my_ref = models.ForeignKey('SomeOtherModel', verbose_name="Very important relation", related_name='my_models')
+
+
+*Example 2 (specifying primary key):*
 
 .. code-block:: python
 
@@ -73,7 +100,29 @@ Use ``RevisionModelMixin`` as a mixin class for your models and add the fields y
         my_ref = models.ForeignKey('SomeOtherModel', verbose_name="Very important relation", related_name='my_models')
 
 
-You can access the changeset by calling the ``change_set`` property of an instance of ``MyModel`` as shown in the following example:
+
+**NOTE**: Do **not** use any of the following names in your models: ``created_at``, ``created_by``, ``change_sets``,
+``last_modified_by``, ``last_modified_at``, ``changed_data``
+
+
+Properties
+----------
+
+By using ``RevisionModelMixin``, the following properties have been added to your model:
+
+* ``created_at``: Gets the date when this object was created (django.db.models.DateTimeField)
+* ``created_by``: Gets the user that created this object (django.contrib.auth.models.User)
+* ``last_modified_at``: Gets the date when the object was last modified (django.db.models.DateTimeField)
+* ``last_modified_by``: Gets the user that last modified the object (django.contrib.auth.models.User)
+* ``changed_data``: A dictionary containing the names of changed fields as keys, and the original and new value as a list
+* ``change_sets``: A list of changesets, which you can iterate over (see below)
+
+
+Accessing the Changeset
+-----------------------
+
+You can access the changeset simply by calling the "change_set" property of an instance of "MyModel" as shown in the
+following example:
 
 .. code-block:: python
 
@@ -96,10 +145,4 @@ You can access the changeset by calling the ``change_set`` property of an instan
         # change_set.created_at, change_set.created_by, change_set.last_modified_by, change_set.last_modified_at
 
         print("-----")
-
-
-Known problems
---------------
-
-Do **not** use any of the following names in your models: ``created_at``, ``created_by``, ``change_sets``, ``last_modified_by``, ``last_modified_at``, ``changed_data``
 
