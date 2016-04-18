@@ -81,6 +81,9 @@ class RevisionModelMixin(object):
 
     @property
     def created_by(self):
+        """
+        Gets the user that created this object
+        """
         earliest_changeset = self._get_earliest_changeset()
         if earliest_changeset:
             try:
@@ -94,6 +97,9 @@ class RevisionModelMixin(object):
 
     @property
     def created_at(self):
+        """
+        Gets the date when this object was created
+        """
         earliest_changeset = self._get_earliest_changeset()
         if earliest_changeset:
             return earliest_changeset.date
@@ -101,6 +107,9 @@ class RevisionModelMixin(object):
 
     @property
     def last_modified_by(self):
+        """
+        Gets the user that last modified the object
+        """
         latest_changeset = self._get_latest_changeset()
         if latest_changeset:
             try:
@@ -114,6 +123,9 @@ class RevisionModelMixin(object):
 
     @property
     def last_modified_at(self):
+        """
+        Gets the date when the object was last modified
+        """
         latest_changeset = self._get_latest_changeset()
         if latest_changeset:
             return latest_changeset.date
