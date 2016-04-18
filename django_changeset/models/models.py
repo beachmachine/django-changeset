@@ -12,6 +12,8 @@ logger = logging.getLogger(__name__)
 
 
 class ChangeSet(models.Model):
+    """ Basic changeset/revision model which contains the ``user`` that modified the object ``object_type`` """
+
     date = models.DateTimeField(
         verbose_name=_(u"Date"),
         auto_now_add=True,
@@ -55,6 +57,9 @@ class ChangeSet(models.Model):
         return self.__unicode__()
 
 class ChangeRecord(models.Model):
+    """ A change_record represents detailed change information, like which field was changed and what the old aswell as
+    the new value of the field look like. It is related to a ``change_set``.
+    """
     change_set = models.ForeignKey(
         ChangeSet,
         related_name="change_records",
@@ -169,7 +174,13 @@ class ChangeRecord(models.Model):
             return None
 
     @property
+    def related_object(self):
+        """ returns the related object (if this is a related field) """
+        return self._get_related_object()
+
+    @property
     def field_verbose_name(self):
+        """ returns the verbose name of the affected field """
         field = self._get_field(supress_warning=True)
 
         if field:
