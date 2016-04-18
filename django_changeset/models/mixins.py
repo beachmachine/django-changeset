@@ -28,6 +28,7 @@ options.DEFAULT_NAMES = options.DEFAULT_NAMES + ('track_fields', 'track_by', 'tr
 
 
 class RevisionModelMixin(object):
+    """ django_changeset uses the RevisionModelMixin as a mixin class, which enables the changeset on a certain model """
 
     @staticmethod
     def set_enabled(state):
@@ -71,8 +72,10 @@ class RevisionModelMixin(object):
 
     @property
     def change_sets(self):
-        """
-        Gets all change sets to the current object.
+        """ Gets all change sets to the current object.
+
+        :returns: a list of changesets
+        :rtype: list of django_changeset.models.ChangeSet
         """
         object_uuid_field_name = getattr(self._meta, 'track_by', 'id')
         object_uuid = getattr(self, object_uuid_field_name)
@@ -81,8 +84,10 @@ class RevisionModelMixin(object):
 
     @property
     def created_by(self):
-        """
-        Gets the user that created this object
+        """ Gets the user that created this object
+
+        :returns: the user that created this object
+        :rtype: django.contrib.auth.models.User
         """
         earliest_changeset = self._get_earliest_changeset()
         if earliest_changeset:
@@ -97,8 +102,10 @@ class RevisionModelMixin(object):
 
     @property
     def created_at(self):
-        """
-        Gets the date when this object was created
+        """ Gets the date when this object was created
+
+        :returns: the date when this object was created
+        :rtype: django.db.models.DateTimeField
         """
         earliest_changeset = self._get_earliest_changeset()
         if earliest_changeset:
@@ -109,6 +116,9 @@ class RevisionModelMixin(object):
     def last_modified_by(self):
         """
         Gets the user that last modified the object
+
+        :returns: the user that last modified this object
+        :rtype: django.contrib.auth.models.User
         """
         latest_changeset = self._get_latest_changeset()
         if latest_changeset:
@@ -123,8 +133,10 @@ class RevisionModelMixin(object):
 
     @property
     def last_modified_at(self):
-        """
-        Gets the date when the object was last modified
+        """ Gets the date when the object was last modified
+
+        :returns: the date when this object was last modified
+        :rtype: django.db.models.DateTimeField
         """
         latest_changeset = self._get_latest_changeset()
         if latest_changeset:
@@ -133,6 +145,11 @@ class RevisionModelMixin(object):
 
     @property
     def changed_data(self):
+        """ Gets a dictionary of changed data
+
+        :returns: a dictionary with the affected field name as key, and the original and new value as content
+        :rtype: dict
+        """
         changed_fields = {}
         orig_data = getattr(self, '__original_data__', {})
 
@@ -330,3 +347,4 @@ post_save.connect(
     RevisionModelMixin.save_initial_model_revision,
     dispatch_uid="django_changeset.save_initial_model_revision.subscriber",
 )
+
