@@ -6,7 +6,8 @@ Django ChangeSet
     :target: https://travis-ci.org/beachmachine/django-changeset
 
 Django ChangeSet is a simple Django app that will give your models the possibility to track all changes. It depends on
-"django_userforeignkey" to determine the users doing the changes.
+"django_userforeignkey" to determine the users doing the changes. It is compatible with Django 1.8 and 1.9, and runs
+with both, Python 2.7+ and 3.4+.
 
 Quick start
 -----------
@@ -36,6 +37,7 @@ Example usage
 Use "RevisionModelMixin" as a mixin class for your models and add the fields you want to track in the meta
 configuration::
 
+..code:: python
     import uuid
 
     from django.db import models
@@ -46,7 +48,7 @@ configuration::
             track_by = 'my_pk'
             track_fields = ('my_data', )
             track_related = {
-                'my_ref': 'my_models',
+                'my_ref': 'my_models', # where 'my_ref' is the local attribute name, and 'my_models' is the related name (see below)
             }
 
         my_pk = models.UUIDField(primary_key=True, editable=False, default=uuid.uuid4)
@@ -56,6 +58,7 @@ configuration::
 
 You can access the changeset by calling the "change_set" property of an instance of "MyModel" as shown in the following excample::
 
+..code:: python
     print("------- CHANGE SETS (", len(somemodel.change_sets), ")---------")
     for change_set in somemodel.change_sets):
         # print change_set
@@ -75,3 +78,9 @@ You can access the changeset by calling the "change_set" property of an instance
         # change_set.created_at, change_set.created_by, change_set.last_modified_by, change_set.last_modified_at
 
         print("-----")
+
+Known problems
+--------------
+
+Do **not** use any of the following names in your models: "created_at", "created_by", "change_sets", "last_modified_by", "last_modified_at", "changed_data"
+
