@@ -1,3 +1,4 @@
 [submodule "tests/user_foreign_key_testapp"]
 	path = tests/user_foreign_key_testapp
 	url = https://github.com/anx-ckreuzberger/user_foreign_key_testapp.git
+        branch = changeset
