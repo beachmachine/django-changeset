@@ -12,18 +12,18 @@ with both, Python 2.7+ and 3.4+.
 Quick start
 -----------
 
-1. Add "django_userforeignkey" and "django_changeset" to your INSTALLED_APPS setting like this::
+1. Add "django_userforeignkey" and "django_changeset" to your INSTALLED_APPS setting like this:
 
-..code-block:: python
+.. code-block:: python
     INSTALLED_APPS = [
         ...
         'django_userforeignkey',
         'django_changeset',
     ]
 
-2. Add "django_userforeignkey.middleware.UserForeignKeyMiddleware" to your MIDDLEWARE_CLASSES settings like this::
+2. Add "django_userforeignkey.middleware.UserForeignKeyMiddleware" to your MIDDLEWARE_CLASSES settings like this:
 
-..code-block:: python
+.. code-block:: python
     MIDDLEWARE_CLASSES = (
         ...
         'django.contrib.auth.middleware.AuthenticationMiddleware',
@@ -36,10 +36,9 @@ Quick start
 Example usage
 -------------
 
-Use "RevisionModelMixin" as a mixin class for your models and add the fields you want to track in the meta
-configuration::
+Use "RevisionModelMixin" as a mixin class for your models and add the fields you want to track in the meta configuration:
 
-..code-block:: python
+.. code-block:: python
     import uuid
 
     from django.db import models
@@ -58,9 +57,9 @@ configuration::
         my_ref = models.ForeignKey('SomeOtherModel', verbose_name="Very important relation", related_name='my_models')
 
 
-You can access the changeset by calling the "change_set" property of an instance of "MyModel" as shown in the following excample::
+You can access the changeset by calling the "change_set" property of an instance of "MyModel" as shown in the following example:
 
-..code-block:: python
+.. code-block:: python
     print("------- CHANGE SETS (", len(somemodel.change_sets), ")---------")
     for change_set in somemodel.change_sets):
         # print change_set
