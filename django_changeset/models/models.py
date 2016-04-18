@@ -51,6 +51,8 @@ class ChangeSet(models.Model):
             'user': self.user,
         }
 
+    def __str__(self):
+        return self.__unicode__()
 
 class ChangeRecord(models.Model):
     change_set = models.ForeignKey(
@@ -99,6 +101,9 @@ class ChangeRecord(models.Model):
             'from': force_text(self.old_value_display),
             'to': force_text(self.new_value_display),
         }
+
+    def __str__(self):
+        return self.__unicode__()
 
     def _get_related_object(self):
         if not self.is_related:
