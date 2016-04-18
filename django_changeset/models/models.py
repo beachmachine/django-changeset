@@ -170,7 +170,7 @@ class ChangeRecord(models.Model):
 
     @property
     def field_verbose_name(self):
-        field = self._get_field()
+        field = self._get_field(supress_warning=True)
 
         if field:
             return field.verbose_name
@@ -178,7 +178,7 @@ class ChangeRecord(models.Model):
 
     @property
     def old_value_display(self):
-        field = self._get_field()
+        field = self._get_field(supress_warning=True)
 
         if field and isinstance(field, models.ForeignKey):
             return self._get_object_or_none(field.rel.to, pk=self.old_value)
@@ -189,7 +189,7 @@ class ChangeRecord(models.Model):
 
     @property
     def new_value_display(self):
-        field = self._get_field()
+        field = self._get_field(supress_warning=True)
 
         if field and isinstance(field, models.ForeignKey):
             return self._get_object_or_none(field.rel.to, pk=self.new_value)
