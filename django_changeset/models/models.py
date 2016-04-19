@@ -14,6 +14,25 @@ logger = logging.getLogger(__name__)
 class ChangeSet(models.Model):
     """ Basic changeset/revision model which contains the ``user`` that modified the object ``object_type`` """
 
+    # choices for changeset type (insert, update, delete)
+    INSERT_TYPE = 'I'
+    UPDATE_TYPE = 'U'
+    DELETE_TYPE = 'D'
+    CHANGESET_TYPE_CHOICES = (
+        (INSERT_TYPE, 'Insert'),
+        (UPDATE_TYPE, 'Update'),
+        (DELETE_TYPE, 'Delete')
+    )
+
+    changeset_type = models.CharField(
+        max_length=1,
+        verbose_name=_(u"Changeset Type"),
+        choices=CHANGESET_TYPE_CHOICES,
+        default=INSERT_TYPE,
+        editable=False,
+        null=False,
+    )
+
     date = models.DateTimeField(
         verbose_name=_(u"Date"),
         auto_now_add=True,
@@ -47,7 +66,8 @@ class ChangeSet(models.Model):
         ordering = ['-date', ]
 
     def __unicode__(self):
-        return _(u"Change on %(app_label)s.%(model)s %(uuid)s at date %(date)s by %(user)s") % {
+        return _(u"%(changeset_type)s on %(app_label)s.%(model)s %(uuid)s at date %(date)s by %(user)s") % {
+            'changeset_type': self.get_changeset_type_display(),
             'app_label': self.object_type.app_label,
             'model': self.object_type.model,
             'uuid': self.object_uuid,
@@ -57,6 +77,7 @@ class ChangeSet(models.Model):
 
     def __str__(self):
         return self.__unicode__()
+
 
 class ChangeRecord(models.Model):
     """ A change_record represents detailed change information, like which field was changed and what the old aswell as

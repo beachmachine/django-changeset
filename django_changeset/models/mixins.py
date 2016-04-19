@@ -238,6 +238,15 @@ class RevisionModelMixin(object):
         change_set = ChangeSet()
         change_set.object_type = object_type
         change_set.object_uuid = object_uuid
+
+        # are there any existing changesets?
+        existing_changesets = ChangeSet.objects.filter(object_uuid=object_uuid, object_type=object_type)
+        if len(existing_changesets) > 0:
+            change_set.changeset_type = change_set.UPDATE_TYPE
+
+
+
+
         change_set.save()
 
         change_record = ChangeRecord()
@@ -309,6 +318,12 @@ class RevisionModelMixin(object):
         change_set = ChangeSet()
         change_set.object_type = content_type
         change_set.object_uuid = object_uuid
+
+        # are there any existing changesets?
+        existing_changesets = ChangeSet.objects.filter(object_uuid=object_uuid, object_type=content_type)
+        if len(existing_changesets) > 0:
+            change_set.changeset_type = change_set.UPDATE_TYPE
+
         change_set.save()
 
         for changed_field, changed_value in changed_fields.items():
@@ -342,10 +357,19 @@ class RevisionModelMixin(object):
 
         object_uuid_field_name = getattr(new_instance._meta, 'track_by', 'id')
         content_type = ContentType.objects.get_for_model(new_instance)
+
         change_set = ChangeSet()
 
         change_set.object_type = content_type
         change_set.object_uuid = getattr(new_instance, object_uuid_field_name)
+
+        # are there any existing changesets?
+        existing_changesets = ChangeSet.objects.filter(object_uuid=change_set.object_uuid, object_type=content_type)
+
+        if len(existing_changesets) > 0:
+            change_set.changeset_type = change_set.UPDATE_TYPE
+
+
         change_set.save()
 
         for changed_field, changed_value in changed_fields.items():
