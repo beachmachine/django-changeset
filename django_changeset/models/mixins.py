@@ -1,8 +1,6 @@
 # -*- coding: utf-8 -*-
 import logging
-
 from threading import local
-
 from contextlib import contextmanager
 
 from django.db.models import options
@@ -10,6 +8,8 @@ from django.db.models.signals import pre_save, post_save, post_init
 from django.contrib.contenttypes.models import ContentType
 from django.core.exceptions import ObjectDoesNotExist
 from django.utils.text import force_text
+from django.contrib.auth.models import User
+from django.db.models.loading import get_model # needed to get the model of a content type
 
 from django_changeset.models import ChangeSet, ChangeRecord
 
@@ -24,11 +24,59 @@ _thread_locals = local()
 # be visible in the changes of the parent. `track_related` contains a dict, where the key
 # is the name of the foreign key field, and the value the used field-name for the ChangeRecord
 # on the parent (usually the `related_name`).
-options.DEFAULT_NAMES = options.DEFAULT_NAMES + ('track_fields', 'track_by', 'track_related', )
+options.DEFAULT_NAMES = options.DEFAULT_NAMES + ('track_fields', 'track_by', 'track_related', 'related_name_user', )
+
+
+
+def get_all_objects_created_by_user(user, object_type):
+    """
+    returns all objects of type "object-type" that have been created by user
+    :param user: the user object
+    :type: django.contrib.auth.models.User
+    :param object_type: the content type object
+    :type object_type: django.contrib.contenttypes.models.ContentType
+    :return: a list with objects of type `object_type`
+    :rtype: list of object_type
+    """
+    queryset = ChangeSet.objects.filter(user=user, object_type=object_type)
+
+    # first, collect the primary keys (object_uuid) of all change_sets that look like a created object
+    pks = []
+    for change_set in queryset:
+        # get earliest change record
+        change_record = change_set.change_records.all().earliest()
+
+        # was this created by the user?
+        if change_record.change_set.user == user:
+            # must not be related, old value must be none and new value must be not none
+            if not change_record.is_related and change_record.old_value is None and change_record.new_value is not None:
+                # only add if it has not been added
+                if change_set.id not in pks:
+                    pks.append(change_set.object_uuid)
+
+    # get the class of this object_type / content_type
+    obj_class = get_model(app_label=object_type.app_label, model_name=object_type.model)
+
+    # and return all objects of that class with the given primary keys
+    return obj_class.objects.filter(pk__in=pks)
+
 
 
 class RevisionModelMixin(object):
-    """ django_changeset uses the RevisionModelMixin as a mixin class, which enables the changeset on a certain model """
+    """ django_changeset uses the RevisionModelMixin as a mixin class, which enables the changeset on a certain
+    model """
+
+    # overwrite the constructor so we can patch a foreign key to the user
+    def __init__(self, *args, **kwargs):
+        super(RevisionModelMixin, self).__init__(*args, **kwargs)
+        # register the get method for related_name on the user model
+        related_name_user = getattr(self._meta, 'related_name_user', '')
+
+        if related_name_user != '':
+            User.add_to_class("get_" + related_name_user,
+                              lambda user: # user will be set by the calling object afterwards
+                              get_all_objects_created_by_user(user=user,
+                                                              object_type=ContentType.objects.get_for_model(self)))
 
     @staticmethod
     def set_enabled(state):

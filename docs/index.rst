@@ -154,3 +154,44 @@ Accessing the Changeset of a User (all changes that the user ever did)
         print("Change was carried out at ", change_set.date, " by user ", change_set.user, " on model ", change_set.object_type)
         # ... see above
 
+
+Defining a 'foreign-key' like element
+-------------------------------------
+
+Usually you would have something like this in your model:
+
+
+.. code-block:: python
+
+    class MyModel(models.Model):
+        my_data = models.CharField(max_length=64, verbose_name="Very important data you want to track")
+        created_by = ForeignKey(User, related_name='models')
+
+
+This would allow you to access the models of a certain user by using the ``related_name`` property, in this case by
+calling ``myuser.models``. To accomplish the same with the changeset, we added a meta-property called
+``related_name_user``, as shown in the example below:
+
+
+.. code-block:: python
+
+    import uuid
+
+    from django.db import models
+    from django_changeset.models import RevisionModelMixin
+
+    class MyModel(models.Model, RevisionModelMixin):
+        class Meta:
+            track_by = 'my_pk'
+            track_fields = ('my_data', )
+            track_related = ('my_ref', )
+            related_name_user = 'models'
+
+        my_pk = models.UUIDField(primary_key=True, editable=False, default=uuid.uuid4)
+        my_data = models.CharField(max_length=64, verbose_name="Very important data you want to track")
+        my_ref = models.ForeignKey('SomeOtherModel', verbose_name="Very important relation", related_name='my_models')
+
+
+This now allows you to access all models of a user by calling ``myuser.get_models()``. The method returns a list of
+objects (in this case MyModel). Please bear in mind that the method always starts with a "get_", regardless of what
+you specify in ``related_name_user``.
