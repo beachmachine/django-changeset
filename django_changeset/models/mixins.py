@@ -9,8 +9,16 @@ from django.contrib.contenttypes.models import ContentType
 from django.core.exceptions import ObjectDoesNotExist
 from django.utils.text import force_text
 from django.contrib.auth.models import User
-from django.db.models.loading import get_model # needed to get the model of a content type
 
+# import get_model (different versions of django, django.db.models.get_model is deprecated for newer django versions)
+try:
+    from django.apps import apps
+    get_model = apps.get_model
+except ImportError:
+    # django < 1.7
+    from django.db.models import get_model
+    
+    
 from django_changeset.models import ChangeSet, ChangeRecord
 
 logger = logging.getLogger(__name__)
