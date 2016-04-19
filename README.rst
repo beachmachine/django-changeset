@@ -66,9 +66,7 @@ Use ``RevisionModelMixin`` as a mixin class for your models and add the fields y
         class Meta:
             track_by = 'my_pk'
             track_fields = ('my_data', )
-            track_related = {
-                'my_ref': 'my_models', # where 'my_ref' is the local attribute name, and 'my_models' is the related name (see below)
-            }
+            track_related = ('my_ref', )
 
         my_pk = models.UUIDField(primary_key=True, editable=False, default=uuid.uuid4)
         my_data = models.CharField(max_length=64, verbose_name="Very important data you want to track")
