@@ -21,9 +21,11 @@ class ChangeSet(models.Model):
         null=False,
     )
 
+    # track the user that triggered this change
     user = UserForeignKey(
         verbose_name=_(u"User"),
         auto_user_add=True,
+        related_name="all_changes", # allows to access userobj.all_changes
     )
 
     object_type = models.ForeignKey(
@@ -175,7 +177,7 @@ class ChangeRecord(models.Model):
 
     @property
     def related_object(self):
-        """ returns the related object (if this is a related field) """
+        """ returns the related object (only if the change was on a related entity; check obj.is_related) """
         return self._get_related_object()
 
     @property
@@ -189,6 +191,7 @@ class ChangeRecord(models.Model):
 
     @property
     def old_value_display(self):
+        """ returns the old/original value (display) """
         field = self._get_field(supress_warning=True)
 
         if field and isinstance(field, models.ForeignKey):
@@ -200,6 +203,7 @@ class ChangeRecord(models.Model):
 
     @property
     def new_value_display(self):
+        """ returns the new value (display) """
         field = self._get_field(supress_warning=True)
 
         if field and isinstance(field, models.ForeignKey):

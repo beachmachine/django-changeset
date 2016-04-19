@@ -199,15 +199,24 @@ class RevisionModelMixin(object):
         new_instance = kwargs['instance']
 
         object_uuid_field_name = getattr(new_instance._meta, 'track_by', 'id')
-        object_related = getattr(new_instance._meta, 'track_related', {})
+        object_related = getattr(new_instance._meta, 'track_related', []) # get meta class attribute 'track_related'
+
+        if isinstance(object_related, dict):
+            logger.error('You are using track_related with a dictionary, but this version is expecting a list!')
+
         object_uuid = getattr(new_instance, object_uuid_field_name)
 
-        for fk_field_name, related_name in object_related.items():
+        # iterate over the list of "track_related" items and get their related object and name
+        for fk_field_name in object_related:
             try:
                 related_object = getattr(new_instance, fk_field_name)
 
                 if not isinstance(related_object, RevisionModelMixin):
                     raise ObjectDoesNotExist
+
+                # get the related field and the "related_name" (as in: ForeignKey(MyModel, related_name="abcd")
+                related_field = new_instance._meta.get_field(fk_field_name)
+                related_name = related_field.related_query_name()
 
                 related_object._persist_related_change(related_name, object_uuid)
             except ObjectDoesNotExist:

@@ -57,8 +57,7 @@ model should be tracked.
 * ``track_by`` is an optional field which you should use when you specify which allows you to specify which field
   should be used as the primary key
 * ``track_fields`` is a required field. By providing a list you can specify which fields should be tracked.
-* ``track_related`` is an optional field for tracking changes on related models, by providing a dictionary with the
-  attribute name and the related names,.
+* ``track_related`` is an optional field for tracking changes on related models, by providing a list of related fields.
 
 *Example 1 (without specifying primary key):*
 
@@ -70,9 +69,7 @@ model should be tracked.
     class MyModel(models.Model, RevisionModelMixin):
         class Meta:
             track_fields = ('my_data', )
-            track_related = {
-                'my_ref': 'my_models', # where 'my_ref' is the local attribute name, and 'my_models' is the related name (see below)
-            }
+            track_related = ('my_ref', )
 
         my_data = models.CharField(max_length=64, verbose_name="Very important data you want to track")
         my_ref = models.ForeignKey('SomeOtherModel', verbose_name="Very important relation", related_name='my_models')
@@ -91,9 +88,7 @@ model should be tracked.
         class Meta:
             track_by = 'my_pk'
             track_fields = ('my_data', )
-            track_related = {
-                'my_ref': 'my_models', # where 'my_ref' is the local attribute name, and 'my_models' is the related name (see below)
-            }
+            track_related = ('my_ref', )
 
         my_pk = models.UUIDField(primary_key=True, editable=False, default=uuid.uuid4)
         my_data = models.CharField(max_length=64, verbose_name="Very important data you want to track")
@@ -118,10 +113,10 @@ By using ``RevisionModelMixin``, the following properties have been added to you
 * ``change_sets``: A list of changesets, which you can iterate over (see below)
 
 
-Accessing the Changeset
------------------------
+Accessing the Changeset of a Model
+----------------------------------
 
-You can access the changeset simply by calling the "change_set" property of an instance of "MyModel" as shown in the
+You can access the changeset of a model simply by calling the "change_set" property of an instance of "MyModel" as shown in the
 following example:
 
 .. code-block:: python
@@ -145,4 +140,17 @@ following example:
         # change_set.created_at, change_set.created_by, change_set.last_modified_by, change_set.last_modified_at
 
         print("-----")
+
+
+
+Accessing the Changeset of a User (all changes that the user ever did)
+----------------------------------------------------------------------
+
+.. code-block:: python
+
+    print("------- CHANGE SETS OF USER (", len(someuser.all_changes), ")---------")
+    for change_set in someuser.all_changess:
+        # print change_set
+        print("Change was carried out at ", change_set.date, " by user ", change_set.user, " on model ", change_set.object_type)
+        # ... see above
 
