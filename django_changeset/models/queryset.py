@@ -35,6 +35,13 @@ class ChangeSetQuerySetMixin(object):
             pass
 
 
+        You also need to tell your model that you want to use the manager with this new queryset
+        
+        class MyModel:
+            ...
+            objects = models.Manager.from_queryset(MyModelQuerySet)()
+
+
         You can then use it as follows:
 
         qs_created = MyModel.objects.created_by_current_user()
