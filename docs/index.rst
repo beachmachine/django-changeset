@@ -121,8 +121,8 @@ following example:
 
 .. code-block:: python
 
-    print("------- CHANGE SETS (", len(somemodel.change_sets), ")---------")
-    for change_set in somemodel.change_sets:
+    print("------- CHANGE SETS (", len(MyModel.change_sets), ")---------")
+    for change_set in MyModel.change_sets:
         # print change_set
         print("Change was carried out at ", change_set.date, " by user ", change_set.user, " on model ", change_set.object_type)
 
@@ -153,6 +153,36 @@ Accessing the Changeset of a User (all changes that the user ever did)
         # print change_set
         print("Change was carried out at ", change_set.date, " by user ", change_set.user, " on model ", change_set.object_type)
         # ... see above
+
+
+Using filters `created_by`, `updated_by`, `deleted_by`
+------------------------------------------------------
+
+We implemented a mixin for Djangos ``QuerySet``, which allows you to query objects like this:
+
+
+.. code-block:: python
+
+    MyModel.objects.created_by_current_user()
+    MyModel.objects.updated_by_current_user()
+
+
+Internally, this is nothing other than a subquery over the ``ChangeSet`` model and the current ``MyModel``. To use this,
+you need to add a custom queryset and a custom manager, like shown below.
+
+
+.. code-block:: python
+
+    from django_changeset.models.querysets import ChangeSetQuerySetMixin
+    from django.db.models import QuerySet
+
+    class MyModelQuerySet(QuerySet, ChangeSetQuerySetMixin):
+        pass
+
+    class MyModel:
+        ...
+        objects = models.Manager.from_queryset(MyModelQuerySet)()
+
 
 
 Defining a 'foreign-key' like element

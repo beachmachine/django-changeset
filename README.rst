@@ -10,7 +10,7 @@ Django ChangeSet is a simple Django app that will give your models the possibili
 
 Currently, Django 1.8 (Python 2.7, Python 3.3+) and Django 1.9 (Python 2.7, Python 3.4+) are supported.
 
-Detailed documentation is in the "docs" directory.
+Detailed documentation is in the docs subdirectory (see :file:`./docs/index.rst`).
 
 Quick start
 -----------
