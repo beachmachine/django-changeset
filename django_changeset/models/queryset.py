@@ -49,6 +49,18 @@ class ChangeSetQuerySetMixin(object):
         qs_deleted = MyModel.objects.deleted_by_current_user() # this last one does not work yet (TODO)
 
     """
+    
+    def is_staff_or_created_by_current_user(self, *args, **kwargs):
+        """
+        returns all objects that have been created by the user (or if staff, all)
+        """
+        user = get_current_user()
+
+        if user.is_staff:
+            return self.all()
+        else:
+            return self.created_by_current_user(args, kwargs)
+    
     def created_by_current_user(self, *args, **kwargs):
         """
         returns all objects that have been created by the user (based on the django changeset model)
