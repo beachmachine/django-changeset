@@ -128,11 +128,10 @@ class RevisionModelMixin(object):
     Check if version number is the same, and update it
     """
     def update_version_number(self, content_type):
-        print('in update version number')
         version_field = self.get_version_field()
 
         if not version_field:
-            print('version field not available')
+            # version field not available
             return
 
         orig_data = content_type.get_object_for_this_type(pk=self.pk)
