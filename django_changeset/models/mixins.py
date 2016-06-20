@@ -3,6 +3,7 @@ import logging
 from threading import local
 from contextlib import contextmanager
 
+from django.db import models
 from django.db.models import options
 from django.db.models.signals import pre_save, post_save, post_init
 from django.contrib.contenttypes.models import ContentType
@@ -17,8 +18,8 @@ try:
 except ImportError:
     # django < 1.7
     from django.db.models import get_model
-    
-    
+
+
 from django_changeset.models import ChangeSet, ChangeRecord
 
 logger = logging.getLogger(__name__)
@@ -69,6 +70,37 @@ def get_all_objects_created_by_user(user, object_type):
     return obj_class.objects.filter(pk__in=pks)
 
 
+class ChangesetVersionField(models.PositiveIntegerField):
+    """
+    A positive integer field to track the number of changes on a model (aka the version).
+    Every time the model is updated (saved), this number is incremented by one.
+    """
+    def __init__(self, *args, **kwargs):
+        kwargs.setdefault('default', 0)
+        super(ChangesetVersionField, self).__init__(*args, **kwargs)
+
+
+    def formfield(self, **kwargs):
+        widget = kwargs.get('widget')
+        if widget:
+            if issubclass(widget, AdminIntegerFieldWidget):
+                widget = ReadonlyInput()
+        else:
+            widget = forms.HiddenInput
+        kwargs['widget'] = widget
+        return super(ChangesetVersionField, self).formfield(**kwargs)
+
+
+
+class ConcurrentUpdateException(Exception):
+    """
+    Raised when a model can not be saved due to a concurrent update.
+    """
+    def __init__(self, orig_data, latest_version_number, *args, **kwargs):
+        super(ConcurrentUpdateException, self).__init__(*args, **kwargs)
+        self.orig_data = orig_data
+        self.latest_version_number = latest_version_number
+
 
 class RevisionModelMixin(object):
     """ django_changeset uses the RevisionModelMixin as a mixin class, which enables the changeset on a certain
@@ -85,6 +117,34 @@ class RevisionModelMixin(object):
                               lambda user: # user will be set by the calling object afterwards
                               get_all_objects_created_by_user(user=user,
                                                               object_type=ContentType.objects.get_for_model(self)))
+
+    def get_version_field(self):
+        for field in self._meta.fields:
+            if isinstance(field, ChangesetVersionField):
+                return field
+        return None
+
+    """
+    Check if version number is the same, and update it
+    """
+    def update_version_number(self, content_type):
+        print('in update version number')
+        version_field = self.get_version_field()
+
+        if not version_field:
+            print('version field not available')
+            return
+
+        orig_data = content_type.get_object_for_this_type(pk=self.pk)
+
+        old_version = version_field.value_from_object(orig_data)
+        new_version = version_field.value_from_object(self)
+
+        if old_version != new_version:
+            raise ConcurrentUpdateException(orig_data=orig_data, latest_version_number=old_version)
+
+        setattr(self, version_field.attname, new_version + 1)
+
 
     @staticmethod
     def set_enabled(state):
@@ -358,6 +418,9 @@ class RevisionModelMixin(object):
         object_uuid_field_name = getattr(new_instance._meta, 'track_by', 'id')
         content_type = ContentType.objects.get_for_model(new_instance)
 
+        new_instance.update_version_number(content_type)
+
+
         change_set = ChangeSet()
 
         change_set.object_type = content_type
@@ -436,4 +499,5 @@ post_save.connect(
     RevisionModelMixin.save_initial_model_revision,
     dispatch_uid="django_changeset.save_initial_model_revision.subscriber",
 )
+
 
