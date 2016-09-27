@@ -8,7 +8,7 @@ Django ChangeSet
 Django ChangeSet is a simple Django app that will give your models the possibility to track all changes. It depends on
 ``django_userforeignkey`` to determine the users doing the changes. 
 
-Currently, Django 1.8 (Python 2.7, Python 3.3+) and Django 1.9 (Python 2.7, Python 3.4+) are supported (Django 1.10a1 was tested).
+Currently, Django 1.8 (Python 2.7, Python 3.3+), Django 1.9 (Python 2.7, Python 3.4+) and Django 1.10 (Python 2.7, Python 3.5+) are supported.
 
 Detailed documentation is in the docs subdirectory (see :file:`./docs/index.rst`).
 
@@ -20,7 +20,7 @@ django_userforeignkey):
 
 .. code-block:: bash
 
-    pip install git+https://github.com/beachmachine/django-userforeignkey.git
+    pip install django-userforeignkey
     pip install git+https://github.com/beachmachine/django-changeset.git
 
 
@@ -35,7 +35,7 @@ django_userforeignkey):
     ]
 
 
-3. Add ``django_userforeignkey.middleware.UserForeignKeyMiddleware`` to your MIDDLEWARE_CLASSES settings like this:
+3. Add ``django_userforeignkey.middleware.UserForeignKeyMiddleware`` to your ``MIDDLEWARE_CLASSES`` (Django 1.10 ``MIDDLEWARE`` also works) settings like this:
 
 .. code-block:: python
 
@@ -47,7 +47,8 @@ django_userforeignkey):
     )
 
 
-  Make sure to insert the ``django_userforeignkey`` middleware **after** the authentication middleware.
+
+Make sure to insert the ``django_userforeignkey`` middleware **after** the authentication middleware.
 
 
 Example usage
