@@ -16,9 +16,9 @@ class ChangeSet(models.Model):
     """ Basic changeset/revision model which contains the ``user`` that modified the object ``object_type`` """
 
     # choices for changeset type (insert, update, delete)
-    INSERT_TYPE = b'I'
-    UPDATE_TYPE = b'U'
-    DELETE_TYPE = b'D'
+    INSERT_TYPE = 'I'
+    UPDATE_TYPE = 'U'
+    DELETE_TYPE = 'D'
     CHANGESET_TYPE_CHOICES = (
         (INSERT_TYPE, 'Insert'),
         (UPDATE_TYPE, 'Update'),
