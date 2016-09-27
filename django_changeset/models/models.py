@@ -20,9 +20,9 @@ class ChangeSet(models.Model):
     UPDATE_TYPE = b'U'
     DELETE_TYPE = b'D'
     CHANGESET_TYPE_CHOICES = (
-        (INSERT_TYPE, b'Insert'),
-        (UPDATE_TYPE, b'Update'),
-        (DELETE_TYPE, b'Delete')
+        (INSERT_TYPE, 'Insert'),
+        (UPDATE_TYPE, 'Update'),
+        (DELETE_TYPE, 'Delete')
     )
 
     changeset_type = models.CharField(
