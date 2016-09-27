@@ -33,8 +33,7 @@ class Migration(migrations.Migration):
             name='ChangeSet',
             fields=[
                 ('id', models.AutoField(verbose_name='ID', serialize=False, auto_created=True, primary_key=True)),
-                ('changeset_type', models.CharField(default=b'I', verbose_name='Changeset Type', max_length=1, editable=False, choices=[(b'I', b'Insert'), (b'U', b'Update'), (b'D', b'Delete')])),
-                ('date', models.DateTimeField(auto_now_add=True, verbose_name='Date')),
+                ('changeset_type', models.CharField(default='I', verbose_name='Changeset Type', max_length=1, editable=False, choices=[('I', 'Insert'), ('U', 'Update'), ('D', 'Delete')])),                ('date', models.DateTimeField(auto_now_add=True, verbose_name='Date')),
                 ('object_uuid', models.CharField(verbose_name='Object UUID', max_length=255, editable=False)),
                 ('object_type', models.ForeignKey(editable=False, to='contenttypes.ContentType', verbose_name='Object type')),
                 ('user', django_userforeignkey.models.fields.UserForeignKey(related_name='all_changes', on_delete=django.db.models.deletion.SET_NULL, verbose_name='User', blank=True, to=settings.AUTH_USER_MODEL, null=True)),
