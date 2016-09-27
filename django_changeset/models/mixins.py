@@ -272,7 +272,13 @@ class RevisionModelMixin(object):
             orig_value = orig_data.get(field_name)
 
             try:
-                new_value = getattr(self, field_name)
+                # check if is foreign key --> if yes, only get the id (--> not a db lookup)
+                field = self._meta.get_field(field_name)
+
+                if field.rel: # get the id
+                    new_value = getattr(self, field_name + "_id")
+                else:
+                    new_value = getattr(self, field_name)
             except ObjectDoesNotExist:
                 new_value = None
 
@@ -459,7 +465,13 @@ class RevisionModelMixin(object):
 
         for field_name in getattr(instance._meta, 'track_fields', []):
             try:
-                value = getattr(instance, field_name)
+                # check if is foreign key --> if yes, get id
+                field = instance._meta.get_field(field_name)
+
+                if field.rel: # get the id
+                    value = getattr(instance, field_name + "_id")
+                else:
+                    value = getattr(instance, field_name)
             except (ObjectDoesNotExist, ValueError):
                 value = None
 
