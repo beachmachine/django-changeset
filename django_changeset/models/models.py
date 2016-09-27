@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+from __future__ import unicode_literals
 import logging
 
 from django.db import models
@@ -15,13 +16,13 @@ class ChangeSet(models.Model):
     """ Basic changeset/revision model which contains the ``user`` that modified the object ``object_type`` """
 
     # choices for changeset type (insert, update, delete)
-    INSERT_TYPE = 'I'
-    UPDATE_TYPE = 'U'
-    DELETE_TYPE = 'D'
+    INSERT_TYPE = b'I'
+    UPDATE_TYPE = b'U'
+    DELETE_TYPE = b'D'
     CHANGESET_TYPE_CHOICES = (
-        (INSERT_TYPE, 'Insert'),
-        (UPDATE_TYPE, 'Update'),
-        (DELETE_TYPE, 'Delete')
+        (INSERT_TYPE, b'Insert'),
+        (UPDATE_TYPE, b'Update'),
+        (DELETE_TYPE, b'Delete')
     )
 
     changeset_type = models.CharField(
