@@ -375,7 +375,13 @@ class RevisionModelMixin(object):
         changed_fields = {}
         for field_name in getattr(new_instance._meta, 'track_fields', []):
             try:
-                new_value = getattr(new_instance, field_name)
+                # check if is foreign key --> if yes, only get the id (--> not a db lookup)
+                field = new_instance._meta.get_field(field_name)
+
+                if field.rel:  # get the id
+                    new_value = getattr(new_instance, field_name + "_id")
+                else:
+                    new_value = getattr(new_instance, field_name)
             except ObjectDoesNotExist:
                 new_value = None
             changed_fields[field_name] = (None, new_value)
