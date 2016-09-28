@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals
 import logging
+import uuid
 
 from django.db import models
 from django.contrib.contenttypes.models import ContentType
@@ -23,6 +24,13 @@ class ChangeSet(models.Model):
         (INSERT_TYPE, 'Insert'),
         (UPDATE_TYPE, 'Update'),
         (DELETE_TYPE, 'Delete')
+    )
+
+    id = models.UUIDField(
+        primary_key=True,
+        default=uuid.uuid4,
+        editable=False,
+        verbose_name=_(u"Primary Key as Python UUID4 Field")
     )
 
     changeset_type = models.CharField(
@@ -84,6 +92,14 @@ class ChangeRecord(models.Model):
     """ A change_record represents detailed change information, like which field was changed and what the old aswell as
     the new value of the field look like. It is related to a ``change_set``.
     """
+
+    id = models.UUIDField(
+        primary_key=True,
+        default=uuid.uuid4,
+        editable=False,
+        verbose_name=_(u"Primary Key as Python UUID4 Field")
+    )
+
     change_set = models.ForeignKey(
         ChangeSet,
         related_name="change_records",

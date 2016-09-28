@@ -5,4 +5,5 @@ django_userforeignkey.egg-info/**
 venv/
 .tox/
 build/
-
+.idea/
+db.sqlite3
