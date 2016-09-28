@@ -2,7 +2,6 @@
 import logging
 from threading import local
 from contextlib import contextmanager
-
 from django.db import models
 from django.db.models import options
 from django.db.models.signals import pre_save, post_save, post_init
@@ -34,7 +33,6 @@ _thread_locals = local()
 # is the name of the foreign key field, and the value the used field-name for the ChangeRecord
 # on the parent (usually the `related_name`).
 options.DEFAULT_NAMES = options.DEFAULT_NAMES + ('track_fields', 'track_by', 'track_related', 'related_name_user', )
-
 
 
 def get_all_objects_created_by_user(user, object_type):
@@ -72,24 +70,14 @@ def get_all_objects_created_by_user(user, object_type):
 
 class ChangesetVersionField(models.PositiveIntegerField):
     """
-    A positive integer field to track the number of changes on a model (aka the version).
+    A positive integer field to track the number of changes on a model when RevisionModelMixin is in use.
+    In addition to the RevisionModelMixin, you can use the ChangesetVersionField to
+    track the number of changes on a model.
     Every time the model is updated (saved), this number is incremented by one.
     """
     def __init__(self, *args, **kwargs):
         kwargs.setdefault('default', 0)
         super(ChangesetVersionField, self).__init__(*args, **kwargs)
-
-
-    def formfield(self, **kwargs):
-        widget = kwargs.get('widget')
-        if widget:
-            if issubclass(widget, AdminIntegerFieldWidget):
-                widget = ReadonlyInput()
-        else:
-            widget = forms.HiddenInput
-        kwargs['widget'] = widget
-        return super(ChangesetVersionField, self).formfield(**kwargs)
-
 
 
 class ConcurrentUpdateException(Exception):
@@ -119,6 +107,7 @@ class RevisionModelMixin(object):
                                                               object_type=ContentType.objects.get_for_model(self)))
 
     def get_version_field(self):
+        """ gets the version field by looking in _meta.fields, and checks if it is a ChangesetVersionField """
         for field in self._meta.fields:
             if isinstance(field, ChangesetVersionField):
                 return field
