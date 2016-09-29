@@ -9,6 +9,7 @@ from django.contrib.contenttypes.models import ContentType
 from django.core.exceptions import ObjectDoesNotExist
 from django.utils.text import force_text
 from django.contrib.auth.models import User
+from django import forms
 
 # import get_model (different versions of django, django.db.models.get_model is deprecated for newer django versions)
 try:
@@ -78,6 +79,11 @@ class ChangesetVersionField(models.PositiveIntegerField):
     def __init__(self, *args, **kwargs):
         kwargs.setdefault('default', 0)
         super(ChangesetVersionField, self).__init__(*args, **kwargs)
+
+    def formfield(self, **kwargs):
+        kwargs['widget'] = forms.HiddenInput
+        #widget = kwargs.get('widget')
+
 
 
 class ConcurrentUpdateException(Exception):
@@ -418,9 +424,6 @@ class RevisionModelMixin(object):
         object_uuid_field_name = getattr(new_instance._meta, 'track_by', 'id')
         content_type = ContentType.objects.get_for_model(new_instance)
 
-        new_instance.update_version_number(content_type)
-
-
         change_set = ChangeSet()
 
         change_set.object_type = content_type
@@ -431,6 +434,7 @@ class RevisionModelMixin(object):
 
         if len(existing_changesets) > 0:
             change_set.changeset_type = change_set.UPDATE_TYPE
+            new_instance.update_version_number(content_type)
 
 
         change_set.save()
