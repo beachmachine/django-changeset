@@ -21,7 +21,7 @@ class Migration(migrations.Migration):
         migrations.CreateModel(
             name='ChangeRecord',
             fields=[
-                ('id', models.AutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
+                ('id', models.UUIDField(default=uuid.uuid4, editable=False, primary_key=True, serialize=False, verbose_name='Primary Key as Python UUID4 Field')),
                 ('field_name', models.CharField(editable=False, max_length=255, verbose_name='Field name')),
                 ('old_value', models.TextField(blank=True, editable=False, null=True, verbose_name='Old value')),
                 ('new_value', models.TextField(blank=True, editable=False, null=True, verbose_name='New value')),
@@ -51,10 +51,5 @@ class Migration(migrations.Migration):
             model_name='changerecord',
             name='change_set',
             field=models.ForeignKey(editable=False, on_delete=django.db.models.deletion.CASCADE, related_name='change_records', to='django_changeset.ChangeSet'),
-        ),
-        migrations.AlterField(
-            model_name='changerecord',
-            name='id',
-            field=models.UUIDField(default=uuid.uuid4, editable=False, primary_key=True, serialize=False, verbose_name='Primary Key as Python UUID4 Field'),
         ),
     ]
