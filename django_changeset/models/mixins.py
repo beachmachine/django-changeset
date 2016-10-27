@@ -33,7 +33,8 @@ _thread_locals = local()
 # be visible in the changes of the parent. `track_related` contains a dict, where the key
 # is the name of the foreign key field, and the value the used field-name for the ChangeRecord
 # on the parent (usually the `related_name`).
-options.DEFAULT_NAMES = options.DEFAULT_NAMES + ('track_fields', 'track_by', 'track_related', 'related_name_user', )
+options.DEFAULT_NAMES = options.DEFAULT_NAMES + \
+                        ('track_fields', 'track_by', 'track_related', 'related_name_user', 'changeset_casts', )
 
 
 def get_all_objects_created_by_user(user, object_type):
@@ -509,5 +510,4 @@ post_save.connect(
     RevisionModelMixin.save_initial_model_revision,
     dispatch_uid="django_changeset.save_initial_model_revision.subscriber",
 )
-
 
