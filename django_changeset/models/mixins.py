@@ -200,7 +200,7 @@ class RevisionModelMixin(object):
         :returns: the user that created this object
         :rtype: django.contrib.auth.models.User
         """
-        earliest_changeset = self._get_earliest_changeset()
+        earliest_changeset = self._get_earliest_changeset().select_related('user')
         if earliest_changeset:
             try:
                 return earliest_changeset.user
@@ -231,7 +231,7 @@ class RevisionModelMixin(object):
         :returns: the user that last modified this object
         :rtype: django.contrib.auth.models.User
         """
-        latest_changeset = self._get_latest_changeset()
+        latest_changeset = self._get_latest_changeset().select_related('user')
         if latest_changeset:
             try:
                 return latest_changeset.user
