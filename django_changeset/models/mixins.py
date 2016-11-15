@@ -353,11 +353,14 @@ class RevisionModelMixin(object):
         if not RevisionModelMixin.get_enabled():
             return
 
-        new_instance = kwargs['instance']
-        raw = kwargs['raw']
+        # do not track raw inserts/updates (e.g. fixtures)
+        if kwargs.get('raw'):
+            return
 
-        # do not track raw inserts/updates
-        if raw or not isinstance(new_instance, RevisionModelMixin):
+        new_instance = kwargs['instance']
+
+        # check if this is a revision model
+        if not isinstance(new_instance, RevisionModelMixin):
             return
 
         object_uuid_field_name = getattr(new_instance._meta, 'track_by', 'id')
@@ -409,11 +412,14 @@ class RevisionModelMixin(object):
         if not RevisionModelMixin.get_enabled():
             return
 
-        new_instance = kwargs['instance']
-        raw = kwargs['raw']
+        # do not track raw inserts/updates (e.g. fixtures)
+        if kwargs.get('raw'):
+            return
 
-        # do not track raw inserts/updates, as well as regular inserts.
-        if raw or not new_instance.pk or not isinstance(new_instance, RevisionModelMixin):
+        new_instance = kwargs['instance']
+
+        # check if this is a revision model
+        if not new_instance.pk or not isinstance(new_instance, RevisionModelMixin):
             return
 
         changed_fields = new_instance.changed_data
