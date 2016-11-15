@@ -4,7 +4,7 @@ from threading import local
 from contextlib import contextmanager
 from django.db import models
 from django.db.models import options
-from django.db.models.signals import pre_save, post_save, post_init
+from django.db.models.signals import pre_save, post_save, post_init, m2m_changed
 from django.contrib.contenttypes.models import ContentType
 from django.core.exceptions import ObjectDoesNotExist
 from django.utils.text import force_text
@@ -34,7 +34,8 @@ _thread_locals = local()
 # is the name of the foreign key field, and the value the used field-name for the ChangeRecord
 # on the parent (usually the `related_name`).
 options.DEFAULT_NAMES = options.DEFAULT_NAMES + \
-                        ('track_fields', 'track_by', 'track_related', 'related_name_user', 'changeset_casts', )
+                        ('track_fields', 'track_by', 'track_related', 'related_name_user', 'changeset_casts',
+                         'track_through', )
 
 
 def get_all_objects_created_by_user(user, object_type):
@@ -305,9 +306,6 @@ class RevisionModelMixin(object):
         if len(existing_changesets) > 0:
             change_set.changeset_type = change_set.UPDATE_TYPE
 
-
-
-
         change_set.save()
 
         change_record = ChangeRecord()
@@ -406,6 +404,70 @@ class RevisionModelMixin(object):
             change_record.save()
 
         RevisionModelMixin.save_related_revision(sender, **kwargs)
+
+    @staticmethod
+    def m2m_changed(sender, **kwargs):
+        if not RevisionModelMixin.get_enabled():
+            return
+
+        action = kwargs['action']
+
+        # only react on post_add and post_remove (this is also checked 30 lines below)
+        if action not in ['post_add', 'post_remove']:
+            return
+
+        # get instance, primary key set and the action
+        instance = kwargs['instance']
+        pk_set = kwargs['pk_set']
+
+        track_through_fields = getattr(instance._meta, 'track_through', [])
+
+        for field_name in track_through_fields:
+            field = getattr(instance, field_name)
+            if field.through == sender:
+                # track change on field_name
+                print('Action ', action , ' on field ', field_name , ': ' , pk_set)
+
+                # check if changeset exists
+                if hasattr(instance, '__m2m_change_set__'):
+                    # use existing change set
+                    change_set = getattr(instance, '__m2m_change_set__')
+                else:
+                    # create a new change set
+                    content_type = ContentType.objects.get_for_model(instance)
+                    object_uuid_field_name = getattr(instance._meta, 'track_by', 'id')
+
+                    change_set = ChangeSet()
+
+                    change_set.object_type = content_type
+                    change_set.object_uuid = getattr(instance, object_uuid_field_name)
+
+                    change_set.changeset_type = change_set.UPDATE_TYPE
+
+                    change_set.save()
+                    # store this changeset in instance, in case we get another update soon
+                    setattr(instance, '__m2m_change_set__', change_set)
+
+                # iterate over the list of primary keys
+                for pk in pk_set:
+                    # create a new change record for each PK
+                    change_record = ChangeRecord()
+
+                    change_record.change_set = change_set
+                    change_record.field_name = field_name
+
+                    if action == 'post_add':
+                        # in case of an add, we store the new value (old value is None by default)
+                        change_record.new_value = pk
+                    elif action == 'post_remove':
+                        # in case of a delete, we store the old value (new value is None by default)
+                        change_record.old_value = pk
+
+                    # save the change record
+                    change_record.save()
+                # end for
+            # end if
+        # end for field_name in track_through_fields
 
     @staticmethod
     def save_model_revision(sender, **kwargs):
@@ -515,5 +577,10 @@ pre_save.connect(
 post_save.connect(
     RevisionModelMixin.save_initial_model_revision,
     dispatch_uid="django_changeset.save_initial_model_revision.subscriber",
+)
+# many to many (m2m) hook
+m2m_changed.connect(
+    RevisionModelMixin.m2m_changed,
+    dispatch_uid="django_changeset.m2m_changed.subscriber",
 )
 
