@@ -40,6 +40,7 @@ class ChangeSet(models.Model):
         default=INSERT_TYPE,
         editable=False,
         null=False,
+        db_index=True
     )
 
     date = models.DateTimeField(
@@ -47,6 +48,7 @@ class ChangeSet(models.Model):
         auto_now_add=True,
         editable=False,
         null=False,
+        db_index=True
     )
 
     # track the user that triggered this change

@@ -549,7 +549,7 @@ class RevisionModelMixin(object):
 
     def _get_earliest_changeset(self):
         try:
-            return self.change_sets.select_related('user').earliest()
+            return self.change_sets.select_related('user').filter(changeset_type='I').first()
         except ChangeSet.DoesNotExist:
             return None
 
