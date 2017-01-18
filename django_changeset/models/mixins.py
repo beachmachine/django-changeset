@@ -227,7 +227,7 @@ class RevisionModelMixin(object):
         earliest_changeset = self._get_earliest_changeset()
         if earliest_changeset:
             try:
-                return user_cache[earliest_changeset.user_id]
+                return user_cache[earliest_changeset.user_id] if earliest_changeset.user_id else None
             except ObjectDoesNotExist:
                 logger.debug(u"No user for the first change set of '%(model)s' with pk '%(pk)s'." % {
                     'model': force_text(earliest_changeset.object_type),
@@ -269,7 +269,7 @@ class RevisionModelMixin(object):
         latest_changeset = self._get_latest_changeset()
         if latest_changeset:
             try:
-                return user_cache[latest_changeset.user_id]
+                return user_cache[latest_changeset.user_id] if latest_changeset.user_id else None
             except ObjectDoesNotExist:
                 logger.debug(u"No user for the latest change set of '%(model)s' with pk '%(pk)s'." % {
                     'model': force_text(latest_changeset.object_type),
