@@ -60,6 +60,20 @@ class ChangeSetQuerySetMixin(object):
         qs_deleted = MyModel.objects.deleted_by_current_user() # this last one does not work yet (TODO)
 
     """
+    def select_insert_changeset(self, *args, **kwargs):
+        return self.extra(
+            tables=[ChangeSet._meta.db_table],
+            select={
+                "_created_at": ChangeSet._meta.db_table + ".date",
+                "_created_by": ChangeSet._meta.db_table + ".user_id",
+            },
+            where=[
+                "(" + ChangeSet._meta.db_table + ".object_type_id = %s AND " +
+                "CAST(" + ChangeSet._meta.db_table + ".object_uuid as UUID) = " + self.model._meta.db_table + ".id AND "
+                + ChangeSet._meta.db_table + ".changeset_type='I' )"
+            ],
+            params=[get_content_type_of(self.model).id]
+        )
     
     def is_staff_or_created_by_current_user(self, *args, **kwargs):
         """

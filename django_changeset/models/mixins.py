@@ -10,6 +10,8 @@ from django.core.exceptions import ObjectDoesNotExist
 from django.utils.text import force_text
 from django.contrib.auth.models import User
 from django import forms
+from django.core.cache import cache
+from django.dispatch import receiver
 
 # import get_model (different versions of django, django.db.models.get_model is deprecated for newer django versions)
 try:
@@ -101,6 +103,15 @@ class ConcurrentUpdateException(Exception):
 class RevisionModelMixin(object):
     """ django_changeset uses the RevisionModelMixin as a mixin class, which enables the changeset on a certain
     model """
+
+    """
+    Internal variable for setting created_at with the QuerySet method select_insert_changeset
+    """
+    _created_at = None
+    """
+    Internal variable for setting created_by with the QuerySet method select_insert_changeset
+    """
+    _created_by = None
 
     # overwrite the constructor so we can patch a foreign key to the user
     def __init__(self, *args, **kwargs):
@@ -201,10 +212,22 @@ class RevisionModelMixin(object):
         :returns: the user that created this object
         :rtype: django.contrib.auth.models.User
         """
+        # get user cache
+        user_cache = cache.get('djangoChangeSetUserCache', None)
+        if not user_cache:
+            # generate user cache
+            users = User.objects.all()
+            user_cache = {x.pk: x for x in users}
+            cache.set('djangoChangeSetUserCache', user_cache)
+
+        # check if there is a prefetched created_by
+        if self._created_by:
+            return user_cache[self._created_by]
+
         earliest_changeset = self._get_earliest_changeset()
         if earliest_changeset:
             try:
-                return earliest_changeset.user
+                return user_cache[earliest_changeset.user_id]
             except ObjectDoesNotExist:
                 logger.debug(u"No user for the first change set of '%(model)s' with pk '%(pk)s'." % {
                     'model': force_text(earliest_changeset.object_type),
@@ -219,6 +242,9 @@ class RevisionModelMixin(object):
         :returns: the date when this object was created
         :rtype: django.db.models.DateTimeField
         """
+        if self._created_at:
+            return self._created_at
+
         earliest_changeset = self._get_earliest_changeset()
         if earliest_changeset:
             return earliest_changeset.date
@@ -232,10 +258,18 @@ class RevisionModelMixin(object):
         :returns: the user that last modified this object
         :rtype: django.contrib.auth.models.User
         """
+        # get user cache
+        user_cache = cache.get('djangoChangeSetUserCache', None)
+        if not user_cache:
+            # generate user cache
+            users = User.objects.all()
+            user_cache = {x.pk: x for x in users}
+            cache.set('djangoChangeSetUserCache', user_cache)
+
         latest_changeset = self._get_latest_changeset()
         if latest_changeset:
             try:
-                return latest_changeset.user
+                return user_cache[latest_changeset.user_id]
             except ObjectDoesNotExist:
                 logger.debug(u"No user for the latest change set of '%(model)s' with pk '%(pk)s'." % {
                     'model': force_text(latest_changeset.object_type),
@@ -549,13 +583,13 @@ class RevisionModelMixin(object):
 
     def _get_earliest_changeset(self):
         try:
-            return self.change_sets.select_related('user').filter(changeset_type='I').first()
+            return self.change_sets.filter(changeset_type='I').first()
         except ChangeSet.DoesNotExist:
             return None
 
     def _get_latest_changeset(self):
         try:
-            return self.change_sets.select_related('user').latest()
+            return self.change_sets.latest()
         except ChangeSet.DoesNotExist:
             return None
 
@@ -584,3 +618,14 @@ m2m_changed.connect(
     dispatch_uid="django_changeset.m2m_changed.subscriber",
 )
 
+# update userCache on post_save of User
+@receiver(post_save, sender=User)
+def update_user_cache(sender, instance, raw, *args, **kwargs):
+    # do not track raw inserts/updates (e.g. fixtures)
+    if kwargs.get('raw'):
+        return
+
+    # generate user cache
+    users = User.objects.all()
+    user_cache = {x.pk: x for x in users}
+    cache.set('djangoChangeSetUserCache', user_cache)
