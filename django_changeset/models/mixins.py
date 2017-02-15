@@ -2,6 +2,7 @@
 import logging
 from threading import local
 from contextlib import contextmanager
+from django.conf import settings
 from django.db import models
 from django.db.models import options
 from django.db.models.signals import pre_save, post_save, post_init, m2m_changed
@@ -38,6 +39,68 @@ _thread_locals = local()
 options.DEFAULT_NAMES = options.DEFAULT_NAMES + \
                         ('track_fields', 'track_by', 'track_related', 'related_name_user', 'changeset_casts',
                          'track_through', )
+
+
+"""
+Global Variable that determines how the cache prefix should look like
+"""
+CACHE_USER_PREFIX_CONFIG_STRING = "{prefix}.user_{id}"
+
+
+def get_changeset_cache_prefix():
+    """
+    Determine whether or not the cache prefix has been set
+    :return:
+    """
+    if hasattr(settings, "DJANGO_CHANGESET_CACHE_PREFIX"):
+        return settings.DJANGO_CHANGESET_CACHE_PREFIX
+    else:
+        logger.error("Please define DJANGO_CHANGESET_CACHE_PREFIX in your settings file")
+
+
+def get_user_from_cache(user_id):
+    """
+    Get a user from cache by its user id
+    :param user_id:
+    :return: the user or none if it does not exist in the cache
+    """
+    return cache.get(
+        CACHE_USER_PREFIX_CONFIG_STRING.format(
+            prefix=settings.DJANGO_CHANGESET_CACHE_PREFIX,
+            id=user_id
+        ),
+        None
+    )
+
+
+def update_user_in_cache(user):
+    """
+    Updates the user in the cache
+    :param user:
+    :return:
+    """
+    cache.set(
+        CACHE_USER_PREFIX_CONFIG_STRING.format(
+            prefix=settings.DJANGO_CHANGESET_CACHE_PREFIX,
+            id=user.id
+        ),
+        user
+    )
+
+
+def get_user_from_cache_or_db(user_id):
+    """
+    Checks whether the user is in redis cache
+    If not, get the user from database and add it to redis cache
+    :param user_id:
+    :return:
+    """
+    cached_user = get_user_from_cache(user_id)
+    if not cached_user:
+        user = User.objects.filter(id=user_id).first()
+        update_user_in_cache(user)
+        return user
+    return cached_user
 
 
 def get_all_objects_created_by_user(user, object_type):
@@ -212,28 +275,18 @@ class RevisionModelMixin(object):
         :returns: the user that created this object
         :rtype: django.contrib.auth.models.User
         """
-        # get user cache
-        user_cache = cache.get('djangoChangeSetUserCache', None)
-        if not user_cache:
-            # generate user cache
-            users = User.objects.all()
-            user_cache = {x.pk: x for x in users}
-            cache.set('djangoChangeSetUserCache', user_cache)
-
-        # check if there is a prefetched created_by
+        # check if there is a prefetched created_by and use it
         if self._created_by:
-            return user_cache[self._created_by]
+            return get_user_from_cache_or_db(self._created_by)
 
+        # get the earliest changeset
         earliest_changeset = self._get_earliest_changeset()
-        if earliest_changeset:
-            try:
-                return user_cache[earliest_changeset.user_id] if earliest_changeset.user_id else None
-            except ObjectDoesNotExist:
-                logger.debug(u"No user for the first change set of '%(model)s' with pk '%(pk)s'." % {
-                    'model': force_text(earliest_changeset.object_type),
-                    'pk': force_text(earliest_changeset.object_uuid),
-                })
-        return None
+
+        if earliest_changeset.user_id:
+            # get user cache
+            return get_user_from_cache_or_db(earliest_changeset.user_id)
+        else:
+            return None
 
     @property
     def created_at(self):
@@ -258,18 +311,13 @@ class RevisionModelMixin(object):
         :returns: the user that last modified this object
         :rtype: django.contrib.auth.models.User
         """
-        # get user cache
-        user_cache = cache.get('djangoChangeSetUserCache', None)
-        if not user_cache:
-            # generate user cache
-            users = User.objects.all()
-            user_cache = {x.pk: x for x in users}
-            cache.set('djangoChangeSetUserCache', user_cache)
-
         latest_changeset = self._get_latest_changeset()
         if latest_changeset:
             try:
-                return user_cache[latest_changeset.user_id] if latest_changeset.user_id else None
+                if latest_changeset.user_id:
+                    return get_user_from_cache_or_db(latest_changeset.user_id)
+                else:
+                    return None
             except ObjectDoesNotExist:
                 logger.debug(u"No user for the latest change set of '%(model)s' with pk '%(pk)s'." % {
                     'model': force_text(latest_changeset.object_type),
@@ -618,6 +666,7 @@ m2m_changed.connect(
     dispatch_uid="django_changeset.m2m_changed.subscriber",
 )
 
+
 # update userCache on post_save of User
 @receiver(post_save, sender=User)
 def update_user_cache(sender, instance, raw, *args, **kwargs):
@@ -625,7 +674,4 @@ def update_user_cache(sender, instance, raw, *args, **kwargs):
     if kwargs.get('raw'):
         return
 
-    # generate user cache
-    users = User.objects.all()
-    user_cache = {x.pk: x for x in users}
-    cache.set('djangoChangeSetUserCache', user_cache)
+    update_user_in_cache(instance)
