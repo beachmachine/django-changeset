@@ -56,6 +56,7 @@ def get_changeset_cache_prefix():
         return settings.DJANGO_CHANGESET_CACHE_PREFIX
     else:
         logger.error("Please define DJANGO_CHANGESET_CACHE_PREFIX in your settings file")
+        return "changeset.user_cache"
 
 
 def get_user_from_cache(user_id):
@@ -66,7 +67,7 @@ def get_user_from_cache(user_id):
     """
     return cache.get(
         CACHE_USER_PREFIX_CONFIG_STRING.format(
-            prefix=settings.DJANGO_CHANGESET_CACHE_PREFIX,
+            prefix=get_changeset_cache_prefix(),
             id=user_id
         ),
         None
@@ -81,7 +82,7 @@ def update_user_in_cache(user):
     """
     cache.set(
         CACHE_USER_PREFIX_CONFIG_STRING.format(
-            prefix=settings.DJANGO_CHANGESET_CACHE_PREFIX,
+            prefix=get_changeset_cache_prefix(),
             id=user.id
         ),
         user
