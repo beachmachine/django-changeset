@@ -5,6 +5,8 @@ import uuid
 
 from django.db import models
 from django.contrib.contenttypes.models import ContentType
+from django.contrib.contenttypes.fields import GenericForeignKey
+
 from django.utils.translation import ugettext_lazy as _
 from django.utils.encoding import force_text
 
@@ -13,7 +15,7 @@ from django_userforeignkey.models.fields import UserForeignKey
 logger = logging.getLogger(__name__)
 
 
-class ChangeSet(models.Model):
+class AbstractChangeSet(models.Model):
     """ Basic changeset/revision model which contains the ``user`` that modified the object ``object_type`` """
 
     # choices for changeset type (insert, update, delete)
@@ -65,16 +67,17 @@ class ChangeSet(models.Model):
         null=False,
     )
 
-    object_uuid = models.CharField(
-        verbose_name=_(u"Object UUID"),
-        max_length=255,
-        editable=False,
-    )
+    # object_uuid = models.CharField(
+    #     verbose_name=_(u"Object UUID"),
+    #     max_length=255,
+    #     editable=False,
+    # )
 
     class Meta:
         app_label = 'django_changeset'
         get_latest_by = 'date'
         ordering = ['-date', ]
+        abstract = True
 
     def __unicode__(self):
         return _(u"%(changeset_type)s on %(app_label)s.%(model)s %(uuid)s at date %(date)s by %(user)s") % {
@@ -88,6 +91,23 @@ class ChangeSet(models.Model):
 
     def __str__(self):
         return self.__unicode__()
+
+from django.conf import settings
+
+
+if hasattr(settings, "DJANGO_CHANGESET_PK_TYPE") and settings.DJANGO_CHANGESET_PK_TYPE == 'UUID':
+    class ChangeSet(AbstractChangeSet):
+        object_uuid = models.UUIDField(
+            verbose_name=_(u"Object UUID"),
+            editable=False,
+        )
+else:
+    class ChangeSet(AbstractChangeSet):
+        object_uuid = models.CharField(
+            verbose_name=_(u"Object UUID"),
+            max_length=255,
+            editable=False,
+        )
 
 
 class ChangeRecord(models.Model):
