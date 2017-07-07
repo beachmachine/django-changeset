@@ -21,17 +21,6 @@ def get_content_type_of(model):
         return None
 
 
-def get_model_casts(model):
-    """
-    returns a dictionary of casts of a model (e.g., for the generic primary key)
-    :return:
-    """
-    if hasattr(model._meta, 'changeset_casts'):
-        return model._meta.changeset_casts
-    else:
-        return {}  # no casts
-
-
 class ChangeSetQuerySetMixin(object):
     """ This is a mixin for QuerySets which is supposed to return a filter with all objects created, updated or (soft)
         deleted by the current user. The (soft) deleted option is only available if you also implemented (soft) delete
@@ -60,21 +49,6 @@ class ChangeSetQuerySetMixin(object):
         qs_deleted = MyModel.objects.deleted_by_current_user() # this last one does not work yet (TODO)
 
     """
-    def select_insert_changeset(self, *args, **kwargs):
-        return self.extra(
-            tables=[ChangeSet._meta.db_table],
-            select={
-                "_created_at": ChangeSet._meta.db_table + ".date",
-                "_created_by": ChangeSet._meta.db_table + ".user_id",
-            },
-            where=[
-                "(" + ChangeSet._meta.db_table + ".object_type_id = %s AND " +
-                "CAST(" + ChangeSet._meta.db_table + ".object_uuid as UUID) = " + self.model._meta.db_table + ".id AND "
-                + ChangeSet._meta.db_table + ".changeset_type='I' )"
-            ],
-            params=[get_content_type_of(self.model).id]
-        )
-    
     def is_staff_or_created_by_current_user(self, *args, **kwargs):
         """
         returns all objects that have been created by the user (or if staff, all)
@@ -95,8 +69,7 @@ class ChangeSetQuerySetMixin(object):
         # get all changesets that were done by this user on this model and had type "INSERT"
         objects = ChangeSet.objects.filter(user=user,
                                            object_type=get_content_type_of(self.model),
-                                           changeset_type='I').\
-            extra(get_model_casts(self.model))
+                                           changeset_type='I')
         # get primary keys of those objects
         object_uuids = objects.values_list('object_uuid', flat=True)
 
@@ -110,8 +83,7 @@ class ChangeSetQuerySetMixin(object):
         # get all changesets that were done by this user on this model and had type "INSERT"
         objects = ChangeSet.objects.filter(user=user,
                                            object_type=get_content_type_of(self.model),
-                                           changeset_type='D'). \
-            extra(get_model_casts(self.model))
+                                           changeset_type='D')
         # get primary keys of those objects
         object_uuids = objects.values_list('object_uuid', flat=True)
 
@@ -125,8 +97,7 @@ class ChangeSetQuerySetMixin(object):
         # get all changesets that were done by this user on this model and had type "INSERT"
         objects = ChangeSet.objects.filter(user=user,
                                            object_type=get_content_type_of(self.model),
-                                           changeset_type='U'). \
-            extra(get_model_casts(self.model))
+                                           changeset_type='U')
         # get primary keys of those objects
         object_uuids = objects.values_list('object_uuid', flat=True)
 

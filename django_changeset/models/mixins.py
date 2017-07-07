@@ -7,21 +7,21 @@ from django.db import models
 from django.db.models import options
 from django.db.models.signals import pre_save, post_save, post_init, m2m_changed
 from django.contrib.contenttypes.models import ContentType
+from django.contrib.contenttypes.fields import GenericRelation
 from django.core.exceptions import ObjectDoesNotExist
 from django.utils.text import force_text
 from django.contrib.auth.models import User
 from django import forms
-from django.core.cache import cache
 from django.dispatch import receiver
 
 # import get_model (different versions of django, django.db.models.get_model is deprecated for newer django versions)
 try:
     from django.apps import apps
+
     get_model = apps.get_model
 except ImportError:
     # django < 1.7
     from django.db.models import get_model
-
 
 from django_changeset.models import ChangeSet, ChangeRecord
 
@@ -37,71 +37,7 @@ _thread_locals = local()
 # is the name of the foreign key field, and the value the used field-name for the ChangeRecord
 # on the parent (usually the `related_name`).
 options.DEFAULT_NAMES = options.DEFAULT_NAMES + \
-                        ('track_fields', 'track_by', 'track_related', 'related_name_user', 'changeset_casts',
-                         'track_through', )
-
-
-"""
-Global Variable that determines how the cache prefix should look like
-"""
-CACHE_USER_PREFIX_CONFIG_STRING = "{prefix}.user_{id}"
-
-
-def get_changeset_cache_prefix():
-    """
-    Determine whether or not the cache prefix has been set
-    :return:
-    """
-    if hasattr(settings, "DJANGO_CHANGESET_CACHE_PREFIX"):
-        return settings.DJANGO_CHANGESET_CACHE_PREFIX
-    else:
-        logger.error("Please define DJANGO_CHANGESET_CACHE_PREFIX in your settings file")
-        return "changeset.user_cache"
-
-
-def get_user_from_cache(user_id):
-    """
-    Get a user from cache by its user id
-    :param user_id:
-    :return: the user or none if it does not exist in the cache
-    """
-    return cache.get(
-        CACHE_USER_PREFIX_CONFIG_STRING.format(
-            prefix=get_changeset_cache_prefix(),
-            id=user_id
-        ),
-        None
-    )
-
-
-def update_user_in_cache(user):
-    """
-    Updates the user in the cache
-    :param user:
-    :return:
-    """
-    cache.set(
-        CACHE_USER_PREFIX_CONFIG_STRING.format(
-            prefix=get_changeset_cache_prefix(),
-            id=user.id
-        ),
-        user
-    )
-
-
-def get_user_from_cache_or_db(user_id):
-    """
-    Checks whether the user is in redis cache
-    If not, get the user from database and add it to redis cache
-    :param user_id:
-    :return:
-    """
-    cached_user = get_user_from_cache(user_id)
-    if not cached_user:
-        user = User.objects.filter(id=user_id).first()
-        update_user_in_cache(user)
-        return user
-    return cached_user
+                        ('track_fields', 'track_by', 'track_related', 'related_name_user', 'track_through',)
 
 
 def get_all_objects_created_by_user(user, object_type):
@@ -114,6 +50,7 @@ def get_all_objects_created_by_user(user, object_type):
     :return: a list with objects of type `object_type`
     :rtype: list of object_type
     """
+    # ToDo: This method could use a rewrite
     queryset = ChangeSet.objects.filter(user=user, object_type=object_type)
 
     # first, collect the primary keys (object_uuid) of all change_sets that look like a created object
@@ -144,20 +81,21 @@ class ChangesetVersionField(models.PositiveIntegerField):
     track the number of changes on a model.
     Every time the model is updated (saved), this number is incremented by one.
     """
+
     def __init__(self, *args, **kwargs):
         kwargs.setdefault('default', 0)
         super(ChangesetVersionField, self).__init__(*args, **kwargs)
 
     def formfield(self, **kwargs):
         kwargs['widget'] = forms.HiddenInput
-        #widget = kwargs.get('widget')
-
+        # widget = kwargs.get('widget')
 
 
 class ConcurrentUpdateException(Exception):
     """
     Raised when a model can not be saved due to a concurrent update.
     """
+
     def __init__(self, orig_data, latest_version_number, *args, **kwargs):
         super(ConcurrentUpdateException, self).__init__(*args, **kwargs)
         self.orig_data = orig_data
@@ -168,15 +106,6 @@ class RevisionModelMixin(object):
     """ django_changeset uses the RevisionModelMixin as a mixin class, which enables the changeset on a certain
     model """
 
-    """
-    Internal variable for setting created_at with the QuerySet method select_insert_changeset
-    """
-    _created_at = None
-    """
-    Internal variable for setting created_by with the QuerySet method select_insert_changeset
-    """
-    _created_by = None
-
     # overwrite the constructor so we can patch a foreign key to the user
     def __init__(self, *args, **kwargs):
         super(RevisionModelMixin, self).__init__(*args, **kwargs)
@@ -185,7 +114,7 @@ class RevisionModelMixin(object):
 
         if related_name_user != '':
             User.add_to_class("get_" + related_name_user,
-                              lambda user: # user will be set by the calling object afterwards
+                              lambda user:  # user will be set by the calling object afterwards
                               get_all_objects_created_by_user(user=user,
                                                               object_type=ContentType.objects.get_for_model(self)))
 
@@ -199,6 +128,7 @@ class RevisionModelMixin(object):
     """
     Check if version number is the same, and update it
     """
+
     def update_version_number(self, content_type):
         version_field = self.get_version_field()
 
@@ -216,6 +146,43 @@ class RevisionModelMixin(object):
 
         setattr(self, version_field.attname, new_version + 1)
 
+    def check_for_changesets_attribute(self):
+        if not hasattr(self, "changesets"):
+            raise Exception("""Could not find field "changesets" on the model.
+Add the following code to the model that inherits from RevisionModelMixin:
+
+from django.contrib.contenttypes.fields import GenericRelation
+
+
+class SomeModel(models.Model, RevisionModelMixin):
+    # ...            
+    changesets = GenericRelation(
+        ChangeSet,
+        content_type_field='object_type',
+        object_id_field='object_uuid'
+    )
+
+            """)
+
+    @property
+    def created_by(self):
+        self.check_for_changesets_attribute()
+        return self.changesets.filter(changeset_type='I').first().user
+
+    @property
+    def created_at(self):
+        self.check_for_changesets_attribute()
+        return self.changesets.filter(changeset_type='I').first().date
+
+    @property
+    def last_modified_by(self):
+        self.check_for_changesets_attribute()
+        return self.changesets.last().user
+
+    @property
+    def last_modified_at(self):
+        self.check_for_changesets_attribute()
+        return self.changesets.last().date
 
     @staticmethod
     def set_enabled(state):
@@ -258,94 +225,6 @@ class RevisionModelMixin(object):
         RevisionModelMixin.set_related_enabled(state_orig)
 
     @property
-    def change_sets(self):
-        """ Gets all change sets to the current object.
-
-        :returns: a list of changesets
-        :rtype: list of django_changeset.models.ChangeSet
-        """
-        object_uuid_field_name = getattr(self._meta, 'track_by', 'id')
-        object_uuid = getattr(self, object_uuid_field_name)
-        content_type = ContentType.objects.get_for_model(self)
-        return ChangeSet.objects.filter(object_type=content_type, object_uuid=object_uuid)
-
-    @property
-    def created_by(self):
-        """ Gets the user that created this object
-
-        :returns: the user that created this object
-        :rtype: django.contrib.auth.models.User
-        """
-        # check if there is a prefetched created_by and use it
-        if self._created_by:
-            return get_user_from_cache_or_db(self._created_by)
-
-        # get the earliest changeset
-        earliest_changeset = self._get_earliest_changeset()
-
-        if earliest_changeset:
-            try:
-                if earliest_changeset.user_id:
-                    return get_user_from_cache_or_db(earliest_changeset.user_id)
-                else:
-                    return None
-            except ObjectDoesNotExist:
-                logger.debug(u"No user for the latest change set of '%(model)s' with pk '%(pk)s'." % {
-                    'model': force_text(earliest_changeset.object_type),
-                    'pk': force_text(earliest_changeset.object_uuid),
-                })
-        return None
-
-    @property
-    def created_at(self):
-        """ Gets the date when this object was created
-
-        :returns: the date when this object was created
-        :rtype: django.db.models.DateTimeField
-        """
-        if self._created_at:
-            return self._created_at
-
-        earliest_changeset = self._get_earliest_changeset()
-        if earliest_changeset:
-            return earliest_changeset.date
-        return None
-
-    @property
-    def last_modified_by(self):
-        """
-        Gets the user that last modified the object
-
-        :returns: the user that last modified this object
-        :rtype: django.contrib.auth.models.User
-        """
-        latest_changeset = self._get_latest_changeset()
-        if latest_changeset:
-            try:
-                if latest_changeset.user_id:
-                    return get_user_from_cache_or_db(latest_changeset.user_id)
-                else:
-                    return None
-            except ObjectDoesNotExist:
-                logger.debug(u"No user for the latest change set of '%(model)s' with pk '%(pk)s'." % {
-                    'model': force_text(latest_changeset.object_type),
-                    'pk': force_text(latest_changeset.object_uuid),
-                })
-        return None
-
-    @property
-    def last_modified_at(self):
-        """ Gets the date when the object was last modified
-
-        :returns: the date when this object was last modified
-        :rtype: django.db.models.DateTimeField
-        """
-        latest_changeset = self._get_latest_changeset()
-        if latest_changeset:
-            return latest_changeset.date
-        return None
-
-    @property
     def changed_data(self):
         """ Gets a dictionary of changed data
 
@@ -362,7 +241,7 @@ class RevisionModelMixin(object):
                 # check if is foreign key --> if yes, only get the id (--> not a db lookup)
                 field = self._meta.get_field(field_name)
 
-                if field.rel: # get the id
+                if field.rel:  # get the id
                     new_value = getattr(self, field_name + "_id")
                 else:
                     new_value = getattr(self, field_name)
@@ -413,7 +292,7 @@ class RevisionModelMixin(object):
         new_instance = kwargs['instance']
 
         object_uuid_field_name = getattr(new_instance._meta, 'track_by', 'id')
-        object_related = getattr(new_instance._meta, 'track_related', []) # get meta class attribute 'track_related'
+        object_related = getattr(new_instance._meta, 'track_related', [])  # get meta class attribute 'track_related'
 
         if isinstance(object_related, dict):
             logger.error('You are using track_related with a dictionary, but this version is expecting a list!')
@@ -516,7 +395,7 @@ class RevisionModelMixin(object):
             field = getattr(instance, field_name)
             if field.through == sender:
                 # track change on field_name
-                print('Action ', action , ' on field ', field_name , ': ' , pk_set)
+                print('Action ', action, ' on field ', field_name, ': ', pk_set)
 
                 # check if changeset exists
                 if hasattr(instance, '__m2m_change_set__'):
@@ -555,9 +434,9 @@ class RevisionModelMixin(object):
 
                     # save the change record
                     change_record.save()
-                # end for
-            # end if
-        # end for field_name in track_through_fields
+                    # end for
+                    # end if
+                    # end for field_name in track_through_fields
 
     @staticmethod
     def save_model_revision(sender, **kwargs):
@@ -595,7 +474,6 @@ class RevisionModelMixin(object):
             change_set.changeset_type = change_set.UPDATE_TYPE
             new_instance.update_version_number(content_type)
 
-
         change_set.save()
 
         for changed_field, changed_value in changed_fields.items():
@@ -626,7 +504,7 @@ class RevisionModelMixin(object):
                 # check if is foreign key --> if yes, get id
                 field = instance._meta.get_field(field_name)
 
-                if field.rel: # get the id
+                if field.rel:  # get the id
                     value = getattr(instance, field_name + "_id")
                 else:
                     value = getattr(instance, field_name)
@@ -636,18 +514,6 @@ class RevisionModelMixin(object):
             original_data[field_name] = value
 
         setattr(instance, '__original_data__', original_data)
-
-    def _get_earliest_changeset(self):
-        try:
-            return self.change_sets.filter(changeset_type='I').first()
-        except ChangeSet.DoesNotExist:
-            return None
-
-    def _get_latest_changeset(self):
-        try:
-            return self.change_sets.latest()
-        except ChangeSet.DoesNotExist:
-            return None
 
 
 # connect the `pre_save` event to the subscribers for tracking changes. we make use of `dispatch_uid` so the
@@ -674,12 +540,3 @@ m2m_changed.connect(
     dispatch_uid="django_changeset.m2m_changed.subscriber",
 )
 
-
-# update userCache on post_save of User
-@receiver(post_save, sender=User)
-def update_user_cache(sender, instance, raw, *args, **kwargs):
-    # do not track raw inserts/updates (e.g. fixtures)
-    if kwargs.get('raw'):
-        return
-
-    update_user_in_cache(instance)
