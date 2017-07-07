@@ -8,7 +8,7 @@ Django ChangeSet
 Django ChangeSet is a simple Django app that will give your models the possibility to track all changes. It depends on
 ``django_userforeignkey`` to determine the users doing the changes. 
 
-Currently, Django 1.8 (Python 2.7, Python 3.3+), Django 1.9 (Python 2.7, Python 3.4+) and Django 1.10 (Python 2.7, Python 3.5+) are supported.
+Currently, Django 1.8 (Python 2.7, Python 3.3+), Django 1.9 (Python 2.7, Python 3.4+), Django 1.10 (Python 2.7, Python 3.5+) and Django 1.11 are supported.
 
 Detailed documentation is in the docs subdirectory (see :file:`./docs/index.rst`).
 
@@ -202,4 +202,28 @@ migration file manually to **your application** (e.g., ``your_app``), which will
         def __init__(self, name, app_label):
             super(Migration, self).__init__(name, 'django_changeset')
 
+
+Select Related User and User Profile
+------------------------------------
+
+There is a simple QuerySet Manager for the ChangeSet model, which automatically joins the ChangeSet table with the
+django user table:
+
+.. code-block:: python
+
+    class ChangeSetManager(models.Manager):
+    """
+    ChangeSet Manager that forces all ChangeSet queries to contain at least the "user" foreign relation
+    """
+    def get_queryset(self):
+        return super(ChangeSetManager, self).get_queryset().select_related(
+            "user"
+        )
+
+
+This can be configured with the setting ``DJANGO_CHANGESET_SELECT_RELATED``, e.g. if you want to add the userprofile:
+
+.. code-block:: python
+
+    DJANGO_CHANGESET_SELECT_RELATED=["user", "user__userprofile"]
 

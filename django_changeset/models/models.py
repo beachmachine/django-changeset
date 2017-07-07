@@ -6,6 +6,7 @@ import uuid
 from django.db import models
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.contenttypes.fields import GenericForeignKey
+from django.conf import settings
 
 from django.utils.translation import ugettext_lazy as _
 from django.utils.encoding import force_text
@@ -14,9 +15,22 @@ from django_userforeignkey.models.fields import UserForeignKey
 
 logger = logging.getLogger(__name__)
 
+changeset_related_object = getattr(settings, "DJANGO_CHANGESET_SELECT_RELATED", ["user"])
+
+
+class ChangeSetManager(models.Manager):
+    """
+    ChangeSet Manager that forces all ChangeSet queries to contain at least the "user" foreign relation
+    """
+    def get_queryset(self):
+        return super(ChangeSetManager, self).get_queryset().select_related(
+            *changeset_related_object
+        )
+
 
 class AbstractChangeSet(models.Model):
     """ Basic changeset/revision model which contains the ``user`` that modified the object ``object_type`` """
+    objects = ChangeSetManager()
 
     # choices for changeset type (insert, update, delete)
     INSERT_TYPE = 'I'
@@ -91,8 +105,6 @@ class AbstractChangeSet(models.Model):
 
     def __str__(self):
         return self.__unicode__()
-
-from django.conf import settings
 
 
 if hasattr(settings, "DJANGO_CHANGESET_PK_TYPE") and settings.DJANGO_CHANGESET_PK_TYPE == 'UUID':
