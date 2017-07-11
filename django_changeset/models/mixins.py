@@ -276,7 +276,7 @@ class SomeModel(models.Model, RevisionModelMixin):
 
         # are there any existing changesets?
         existing_changesets = ChangeSet.objects.filter(object_uuid=object_uuid, object_type=object_type)
-        if len(existing_changesets) > 0:
+        if existing_changesets.exists():
             change_set.changeset_type = change_set.UPDATE_TYPE
 
         change_set.save()
@@ -362,19 +362,24 @@ class SomeModel(models.Model, RevisionModelMixin):
 
         # are there any existing changesets?
         existing_changesets = ChangeSet.objects.filter(object_uuid=object_uuid, object_type=content_type)
-        if len(existing_changesets) > 0:
+        if existing_changesets.exists():
             change_set.changeset_type = change_set.UPDATE_TYPE
 
         change_set.save()
 
-        for changed_field, changed_value in changed_fields.items():
-            change_record = ChangeRecord()
+        change_records = []
 
-            change_record.change_set = change_set
-            change_record.field_name = changed_field
-            change_record.old_value = changed_value[0]
-            change_record.new_value = changed_value[1]
-            change_record.save()
+        # collect change records
+        for changed_field, changed_value in changed_fields.items():
+            change_record = ChangeRecord(
+                change_set=change_set, field_name=changed_field,
+                old_value=changed_value[0], new_value=changed_value[1]
+            )
+
+            change_records.append(change_record)
+
+        # bulk create change records
+        ChangeRecord.objects.bulk_create(change_records)
 
         RevisionModelMixin.save_related_revision(sender, **kwargs)
 
