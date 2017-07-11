@@ -13,6 +13,9 @@ from django.utils.text import force_text
 from django.contrib.auth.models import User
 from django import forms
 from django.dispatch import receiver
+from django.utils import timezone
+from django_userforeignkey.request import get_current_user
+
 
 # import get_model (different versions of django, django.db.models.get_model is deprecated for newer django versions)
 try:
@@ -37,7 +40,8 @@ _thread_locals = local()
 # is the name of the foreign key field, and the value the used field-name for the ChangeRecord
 # on the parent (usually the `related_name`).
 options.DEFAULT_NAMES = options.DEFAULT_NAMES + \
-                        ('track_fields', 'track_by', 'track_related', 'related_name_user', 'track_through',)
+                        ('track_fields', 'track_by', 'track_related', 'related_name_user', 'track_through',
+                         'aggregate_changesets_within_seconds')
 
 
 def get_all_objects_created_by_user(user, object_type):
@@ -470,20 +474,59 @@ class SomeModel(models.Model, RevisionModelMixin):
         # are there any existing changesets?
         existing_changesets = ChangeSet.objects.filter(object_uuid=change_set.object_uuid, object_type=content_type)
 
-        if len(existing_changesets) > 0:
+        last_changeset = None
+
+        update_existing_changeset = False
+
+        if existing_changesets.exists():
             change_set.changeset_type = change_set.UPDATE_TYPE
             new_instance.update_version_number(content_type)
 
+            # check if the latest of existing_changeset was created by the current user within the last 60 seconds
+            last_changeset = existing_changesets.latest()
+
+        # check if last changeset was created by the current user within the last couple of seconds
+        if last_changeset \
+                and last_changeset.user == get_current_user() \
+                and last_changeset.date > timezone.now()-timezone.timedelta(
+                    seconds=getattr(new_instance._meta, 'aggregate_changesets_within_seconds', 0)
+                ):
+            # overwrite the new_changeset
+            logger.debug("Re-using last changeset")
+            change_set = last_changeset
+            change_set.date = timezone.now()
+            update_existing_changeset = True
+
         change_set.save()
 
-        for changed_field, changed_value in changed_fields.items():
-            change_record = ChangeRecord()
+        if update_existing_changeset:
+            # updateing an existing changeset: need to check all change records for their existance
 
-            change_record.change_set = change_set
-            change_record.field_name = changed_field
-            change_record.old_value = changed_value[0]
-            change_record.new_value = changed_value[1]
-            change_record.save()
+            for changed_field, changed_value in changed_fields.items():
+                # if the changerecord for a change_set and a field already exists, it needs to be updated
+                change_record, created = ChangeRecord.objects.get_or_create(
+                    change_set=change_set, field_name=changed_field,
+                    defaults={'old_value': changed_value[0], 'new_value': changed_value[1]},
+                )
+
+                if not created:
+                    # it already exists, therefore we need to update new value
+                    change_record.new_value = changed_value[1]
+                    change_record.save()
+        else:
+            # collect change records
+            change_records = []
+
+            # iterate over all changed fields and create a change record for them
+            for changed_field, changed_value in changed_fields.items():
+                change_record = ChangeRecord(
+                    change_set=change_set, field_name=changed_field,
+                    old_value=changed_value[0], new_value=changed_value[1]
+                )
+                change_records.append(change_record)
+
+            # do a bulk create to increase database performance
+            ChangeRecord.objects.bulk_create(change_records)
 
         RevisionModelMixin.save_related_revision(sender, **kwargs)
 

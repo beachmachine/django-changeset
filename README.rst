@@ -191,6 +191,8 @@ migration file manually to **your application** (e.g., ``your_app``), which will
             ('your_app', '0815_your_last_migration')
         ]
 
+        replaces = ((TARGET_APP, __module__.rsplit('.', 1)[-1]),)
+
         operations = [
             migrations.AlterField(
                 model_name='changeset',
@@ -226,4 +228,31 @@ This can be configured with the setting ``DJANGO_CHANGESET_SELECT_RELATED``, e.g
 .. code-block:: python
 
     DJANGO_CHANGESET_SELECT_RELATED=["user", "user__userprofile"]
+
+
+Automatically Aggregate Changesets and Changerecords
+----------------------------------------------------
+
+Django Changeset can automatically aggregate changests and changerecords, if they are created by the same user within
+a given timedelta. This is very useful if you are doing partial updates of your model (e.g., PATCH requests in a REST
+API).
+
+You can configure this by setting ``aggregate_changesets_within_seconds`` in the models meta class, e.g.:
+
+.. code-block:: python
+
+    class MyModel(models.Model, RevisionModelMixin):
+        class Meta:
+            aggregate_changesets_within_seconds = 60  # aggregate changesets created by the same user within 60 seconds
+
+        my_pk = models.UUIDField(primary_key=True, editable=False, default=uuid.uuid4)
+
+        ...
+
+        changesets = GenericRelation(
+            ChangeSet,
+            content_type_field='object_type',
+            object_id_field='object_uuid'
+        )
+
 
