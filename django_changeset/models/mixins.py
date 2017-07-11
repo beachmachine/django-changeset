@@ -506,6 +506,7 @@ class SomeModel(models.Model, RevisionModelMixin):
 
         if update_existing_changeset:
             # updateing an existing changeset: need to check all change records for their existance
+            check_number_of_change_records = False
 
             for changed_field, changed_value in changed_fields.items():
                 # if the changerecord for a change_set and a field already exists, it needs to be updated
@@ -517,7 +518,22 @@ class SomeModel(models.Model, RevisionModelMixin):
                 if not created:
                     # it already exists, therefore we need to update new value
                     change_record.new_value = changed_value[1]
-                    change_record.save()
+
+                    # check if old value and new value are the same
+                    if change_record.new_value == change_record.old_value:
+                        # delete this change record
+                        change_record.delete()
+                        check_number_of_change_records = True
+                    else:
+                        # save this change record
+                        change_record.save()
+
+            # we deleted a change record, lets make sure a change record still exists
+            if check_number_of_change_records:
+                if not change_set.change_records.all().exists():
+                    # no change record exists for this changeset --> delete the change set
+                    change_set.delete()
+
         else:
             # collect change records
             change_records = []
