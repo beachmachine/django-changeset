@@ -448,6 +448,37 @@ class SomeModel(models.Model, RevisionModelMixin):
                     # end for field_name in track_through_fields
 
     @staticmethod
+    def update_model_version_number(sender, **kwargs):
+        if not RevisionModelMixin.get_enabled():
+            return
+
+        # do not track raw inserts/updates (e.g. fixtures)
+        if kwargs.get('raw'):
+            return
+
+        new_instance = kwargs['instance']
+
+        # check if this is a revision model
+        if not new_instance.pk or not isinstance(new_instance, RevisionModelMixin):
+            return
+
+        changed_fields = new_instance.changed_data
+
+        # quit here if there is nothing to track.
+        if not changed_fields:
+            return
+
+        object_uuid_field_name = getattr(new_instance._meta, 'track_by', 'id')
+        content_type = ContentType.objects.get_for_model(new_instance)
+        object_uuid = getattr(new_instance, object_uuid_field_name)
+
+        # are there any existing changesets?
+        existing_changesets = ChangeSet.objects.filter(object_uuid=object_uuid, object_type=content_type)
+
+        if existing_changesets.exists():
+            new_instance.update_version_number(content_type)
+
+    @staticmethod
     def save_model_revision(sender, **kwargs):
         if not RevisionModelMixin.get_enabled():
             return
@@ -485,9 +516,8 @@ class SomeModel(models.Model, RevisionModelMixin):
 
         if existing_changesets.exists():
             change_set.changeset_type = change_set.UPDATE_TYPE
-            new_instance.update_version_number(content_type)
-
-            # check if the latest of existing_changeset was created by the current user within the last 60 seconds
+            # get the latest changeset, so we can check if the latest of existing_changeset was created by the
+            # current user within the last couple of seconds
             last_changeset = existing_changesets.latest()
 
         # check if last changeset was created by the current user within the last couple of seconds
@@ -584,6 +614,11 @@ class SomeModel(models.Model, RevisionModelMixin):
 post_init.connect(
     RevisionModelMixin.save_model_original_data,
     dispatch_uid="django_changeset.save_model_original_data.subscriber",
+)
+# on pre save: update version number
+pre_save.connect(
+    RevisionModelMixin.update_model_version_number,
+    dispatch_uid="django_changeset.update_model_version_number.subscriber"
 )
 # on post save: save model changes (changes are determined based on original model data)
 post_save.connect(
