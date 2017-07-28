@@ -580,19 +580,20 @@ class SomeModel(models.Model, RevisionModelMixin):
         setattr(instance, '__original_data__', original_data)
 
 
-# connect the `pre_save` event to the subscribers for tracking changes. we make use of `dispatch_uid` so the
-# event is not connected twice.
+# on post init: store the original data (e.g., when the model is loaded from the database the first time)
 post_init.connect(
     RevisionModelMixin.save_model_original_data,
     dispatch_uid="django_changeset.save_model_original_data.subscriber",
 )
+# on post save: save model changes (changes are determined based on original model data)
+post_save.connect(
+    RevisionModelMixin.save_model_revision,
+    dispatch_uid="django_changeset.save_model_revision.subscriber",
+)
+# after that: store the changed data as the "new" original data again
 post_save.connect(
     RevisionModelMixin.save_model_original_data,
     dispatch_uid="django_changeset.save_model_original_data.subscriber",
-)
-pre_save.connect(
-    RevisionModelMixin.save_model_revision,
-    dispatch_uid="django_changeset.save_model_revision.subscriber",
 )
 post_save.connect(
     RevisionModelMixin.save_initial_model_revision,
