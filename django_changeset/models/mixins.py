@@ -1,10 +1,11 @@
 # -*- coding: utf-8 -*-
 import logging
+from functools import reduce
 from threading import local
 from contextlib import contextmanager
 from django.conf import settings
 from django.db import models
-from django.db.models import options
+from django.db.models import options, ManyToManyRel
 from django.db.models.signals import pre_save, post_save, post_init, m2m_changed
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.contenttypes.fields import GenericRelation
@@ -27,6 +28,18 @@ except ImportError:
     from django.db.models import get_model
 
 from django_changeset.models import ChangeSet, ChangeRecord
+
+
+def getattr_orm(instance, key):
+    """
+    Provides a getattr method which does a recursive lookup in the orm, by splitting the key on every occurance of
+    __
+    :param instance:
+    :param key:
+    :return:
+    """
+    return reduce(getattr, [instance] + key.split('__'))
+
 
 logger = logging.getLogger(__name__)
 _thread_locals = local()
@@ -245,13 +258,19 @@ class SomeModel(models.Model, RevisionModelMixin):
                 # check if is foreign key --> if yes, only get the id (--> not a db lookup)
                 field = self._meta.get_field(field_name)
 
-                if field.rel:  # get the id
-                    new_value = getattr(self, field_name + "_id")
+                if field.rel:
+                    # related field, get the id
+                    if isinstance(field.rel, ManyToManyRel):
+                        # many to many related fields are special, we need to fetch the IDs using the manager
+                        new_value = list(getattr(self, field_name).all().values_list('id', flat=True))
+                    else:
+                        new_value = getattr(self, field_name + "_id")
                 else:
                     new_value = getattr(self, field_name)
             except ObjectDoesNotExist:
                 new_value = None
 
+            # check if value has changed, and store it in changed_fields
             if orig_value != new_value:
                 changed_fields[field_name] = (orig_value, new_value)
 
@@ -301,12 +320,12 @@ class SomeModel(models.Model, RevisionModelMixin):
         if isinstance(object_related, dict):
             logger.error('You are using track_related with a dictionary, but this version is expecting a list!')
 
-        object_uuid = getattr(new_instance, object_uuid_field_name)
+        object_uuid = getattr_orm(new_instance, object_uuid_field_name)
 
         # iterate over the list of "track_related" items and get their related object and name
         for fk_field_name in object_related:
             try:
-                related_object = getattr(new_instance, fk_field_name)
+                related_object = getattr_orm(new_instance, fk_field_name)
 
                 if not isinstance(related_object, RevisionModelMixin):
                     raise ObjectDoesNotExist
@@ -335,7 +354,7 @@ class SomeModel(models.Model, RevisionModelMixin):
             return
 
         object_uuid_field_name = getattr(new_instance._meta, 'track_by', 'id')
-        object_uuid = getattr(new_instance, object_uuid_field_name)
+        object_uuid = getattr_orm(new_instance, object_uuid_field_name)
         content_type = ContentType.objects.get_for_model(new_instance)
 
         change_set_count = ChangeSet.objects.filter(object_type=content_type, object_uuid=object_uuid).count()
@@ -418,7 +437,7 @@ class SomeModel(models.Model, RevisionModelMixin):
                     change_set = ChangeSet()
 
                     change_set.object_type = content_type
-                    change_set.object_uuid = getattr(instance, object_uuid_field_name)
+                    change_set.object_uuid = getattr_orm(instance, object_uuid_field_name)
 
                     change_set.changeset_type = change_set.UPDATE_TYPE
 
@@ -470,7 +489,7 @@ class SomeModel(models.Model, RevisionModelMixin):
 
         object_uuid_field_name = getattr(new_instance._meta, 'track_by', 'id')
         content_type = ContentType.objects.get_for_model(new_instance)
-        object_uuid = getattr(new_instance, object_uuid_field_name)
+        object_uuid = getattr_orm(new_instance, object_uuid_field_name)
 
         # are there any existing changesets?
         existing_changesets = ChangeSet.objects.filter(object_uuid=object_uuid, object_type=content_type)
@@ -505,7 +524,7 @@ class SomeModel(models.Model, RevisionModelMixin):
         change_set = ChangeSet()
 
         change_set.object_type = content_type
-        change_set.object_uuid = getattr(new_instance, object_uuid_field_name)
+        change_set.object_uuid = getattr_orm(new_instance, object_uuid_field_name)
 
         # are there any existing changesets?
         existing_changesets = ChangeSet.objects.filter(object_uuid=change_set.object_uuid, object_type=content_type)
@@ -598,10 +617,15 @@ class SomeModel(models.Model, RevisionModelMixin):
                 # check if is foreign key --> if yes, get id
                 field = instance._meta.get_field(field_name)
 
-                if field.rel:  # get the id
-                    value = getattr(instance, field_name + "_id")
+                if field.rel:
+                    # related field, get the id
+                    if isinstance(field.rel, ManyToManyRel):
+                        # many to many related fields are special, we need to fetch the IDs using the manager
+                        value = list(getattr(instance, field_name).all().values_list('id', flat=True))
+                    else:
+                        value = getattr_orm(instance, field_name + "_id")
                 else:
-                    value = getattr(instance, field_name)
+                    value = getattr_orm(instance, field_name)
             except (ObjectDoesNotExist, ValueError):
                 value = None
 
