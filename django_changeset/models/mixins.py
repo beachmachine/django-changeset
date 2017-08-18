@@ -262,7 +262,7 @@ class SomeModel(models.Model, RevisionModelMixin):
                     # related field, get the id
                     if isinstance(field.rel, ManyToManyRel):
                         # many to many related fields are special, we need to fetch the IDs using the manager
-                        new_value = list(getattr(self, field_name).all().values_list('id', flat=True))
+                        new_value = ",".join([str(item) for item in getattr(self, field_name).all().values_list('id', flat=True)])
                     else:
                         new_value = getattr(self, field_name + "_id")
                 else:
@@ -371,7 +371,7 @@ class SomeModel(models.Model, RevisionModelMixin):
                     # related field, get the id
                     if isinstance(field.rel, ManyToManyRel):
                         # many to many related fields are special, we need to fetch the IDs using the manager
-                        new_value = list(getattr(new_instance, field_name).all().values_list('id', flat=True))
+                        new_value = ",".join([str(item) for item in getattr(new_instance, field_name).all().values_list('id', flat=True)])
                     else:
                         new_value = getattr_orm(new_instance, field_name + "_id")
                 else:
@@ -626,7 +626,7 @@ class SomeModel(models.Model, RevisionModelMixin):
                     # related field, get the id
                     if isinstance(field.rel, ManyToManyRel):
                         # many to many related fields are special, we need to fetch the IDs using the manager
-                        value = list(getattr(instance, field_name).all().values_list('id', flat=True))
+                        value = ",".join([str(item) for item in getattr(instance, field_name).all().values_list('id', flat=True)])
                     else:
                         value = getattr_orm(instance, field_name + "_id")
                 else:
