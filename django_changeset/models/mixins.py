@@ -367,8 +367,13 @@ class SomeModel(models.Model, RevisionModelMixin):
                 # check if is foreign key --> if yes, only get the id (--> not a db lookup)
                 field = new_instance._meta.get_field(field_name)
 
-                if field.rel:  # get the id
-                    new_value = getattr(new_instance, field_name + "_id")
+                if field.rel:
+                    # related field, get the id
+                    if isinstance(field.rel, ManyToManyRel):
+                        # many to many related fields are special, we need to fetch the IDs using the manager
+                        new_value = list(getattr(new_instance, field_name).all().values_list('id', flat=True))
+                    else:
+                        new_value = getattr_orm(new_instance, field_name + "_id")
                 else:
                     new_value = getattr(new_instance, field_name)
             except ObjectDoesNotExist:
