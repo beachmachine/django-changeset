@@ -36,10 +36,15 @@ class AbstractChangeSet(models.Model):
     INSERT_TYPE = 'I'
     UPDATE_TYPE = 'U'
     DELETE_TYPE = 'D'
+    SOFT_DELETE_TYPE = 'S'
+    RESTORE_TYPE = 'R'
+
     CHANGESET_TYPE_CHOICES = (
         (INSERT_TYPE, 'Insert'),
         (UPDATE_TYPE, 'Update'),
-        (DELETE_TYPE, 'Delete')
+        (DELETE_TYPE, 'Delete'),
+        (SOFT_DELETE_TYPE, 'Soft Delete'),
+        (RESTORE_TYPE, 'Restore')
     )
 
     id = models.UUIDField(

@@ -54,6 +54,7 @@ _thread_locals = local()
 # on the parent (usually the `related_name`).
 options.DEFAULT_NAMES = options.DEFAULT_NAMES + \
                         ('track_fields', 'track_by', 'track_related', 'related_name_user', 'track_through',
+                         'track_soft_delete_by',
                          'aggregate_changesets_within_seconds')
 
 
@@ -523,6 +524,24 @@ class SomeModel(models.Model, RevisionModelMixin):
         if not changed_fields:
             return
 
+        # determine whether this is a soft delete or a restore operation
+        is_soft_delete = False
+        is_restore = False
+
+        # get track_soft_deleted_by from the current model
+        track_soft_delete_by = getattr(new_instance._meta, 'track_soft_delete_by', None)
+        if track_soft_delete_by and track_soft_delete_by in changed_fields:
+            if len(changed_fields) > 1:
+                raise Exception("""Can not modify more than one field if track_soft_delete_by is changed""")
+
+            # determine whether this is a soft delete or a trash
+            change_record = changed_fields[track_soft_delete_by]
+
+            if change_record[1] is True:
+                is_soft_delete = True
+            else:
+                is_restore = True
+
         object_uuid_field_name = getattr(new_instance._meta, 'track_by', 'id')
         content_type = ContentType.objects.get_for_model(new_instance)
 
@@ -539,10 +558,17 @@ class SomeModel(models.Model, RevisionModelMixin):
         update_existing_changeset = False
 
         if existing_changesets.exists():
-            change_set.changeset_type = change_set.UPDATE_TYPE
-            # get the latest changeset, so we can check if the latest of existing_changeset was created by the
-            # current user within the last couple of seconds
-            last_changeset = existing_changesets.latest()
+            # an existing changeset already exists
+            # the operation performed can be either soft delete, restore or update
+            if is_soft_delete:
+                change_set.changeset_type = change_set.SOFT_DELETE_TYPE
+            elif is_restore:
+                change_set.changeset_type = change_set.RESTORE_TYPE
+            else:
+                change_set.changeset_type = change_set.UPDATE_TYPE
+                # get the latest changeset, so we can check if the latest of existing_changeset was created by the
+                # current user within the last couple of seconds
+                last_changeset = existing_changesets.latest()
 
         # check if last changeset was created by the current user within the last couple of seconds
         if last_changeset \
