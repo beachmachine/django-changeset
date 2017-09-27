@@ -550,8 +550,13 @@ class SomeModel(models.Model, RevisionModelMixin):
         change_set.object_type = content_type
         change_set.object_uuid = getattr_orm(new_instance, object_uuid_field_name)
 
-        # are there any existing changesets?
-        existing_changesets = ChangeSet.objects.filter(object_uuid=change_set.object_uuid, object_type=content_type)
+        # are there any existing changesets (without restore/soft_delete)?
+        existing_changesets = ChangeSet.objects.filter(
+            object_uuid=change_set.object_uuid,
+            object_type=content_type
+        ).exclude(
+            changeset_type__in=[ChangeSet.RESTORE_TYPE, ChangeSet.SOFT_DELETE_TYPE]
+        )
 
         last_changeset = None
 
