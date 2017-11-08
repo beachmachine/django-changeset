@@ -4,6 +4,7 @@ from functools import reduce
 from threading import local
 from contextlib import contextmanager
 from django.conf import settings
+from django.core import serializers
 from django.db import models
 from django.db.models import options, ManyToManyRel
 from django.db.models.signals import pre_save, post_save, post_init, m2m_changed
@@ -54,7 +55,7 @@ _thread_locals = local()
 # on the parent (usually the `related_name`).
 options.DEFAULT_NAMES = options.DEFAULT_NAMES + \
                         ('track_fields', 'track_by', 'track_related', 'related_name_user', 'track_through',
-                         'track_soft_delete_by',
+                         'track_soft_delete_by', 'track_on_related_model',
                          'aggregate_changesets_within_seconds')
 
 
@@ -259,13 +260,17 @@ class SomeModel(models.Model, RevisionModelMixin):
                 # check if is foreign key --> if yes, only get the id (--> not a db lookup)
                 field = self._meta.get_field(field_name)
 
-                if field.rel:
+                if hasattr(field, 'rel') and field.rel:
                     # related field, get the id
                     if isinstance(field.rel, ManyToManyRel):
                         # many to many related fields are special, we need to fetch the IDs using the manager
                         new_value = ",".join([str(item) for item in getattr(self, field_name).all().values_list('id', flat=True)])
                     else:
                         new_value = getattr(self, field_name + "_id")
+                elif hasattr(field, 'field') and field.field.rel:
+                    # ToDo: check if field.related_model._meta has track_fields
+                    # related model with track fields - use .filter() to clear any caches
+                    new_value = serializers.serialize('json', getattr_orm(self, field_name).filter(), fields=field.related_model._meta.track_fields)
                 else:
                     new_value = getattr(self, field_name)
             except ObjectDoesNotExist:
@@ -368,13 +373,17 @@ class SomeModel(models.Model, RevisionModelMixin):
                 # check if is foreign key --> if yes, only get the id (--> not a db lookup)
                 field = new_instance._meta.get_field(field_name)
 
-                if field.rel:
+                if hasattr(field, 'rel') and field.rel:
                     # related field, get the id
                     if isinstance(field.rel, ManyToManyRel):
                         # many to many related fields are special, we need to fetch the IDs using the manager
                         new_value = ",".join([str(item) for item in getattr(new_instance, field_name).all().values_list('id', flat=True)])
                     else:
                         new_value = getattr_orm(new_instance, field_name + "_id")
+                elif hasattr(field, 'field') and field.field.rel:
+                    # ToDo: check if field.related_model._meta has track_fields
+                    # related model with track fields - use .filter() so we clear any caches
+                    new_value = serializers.serialize('json', getattr_orm(new_instance, field_name).filter(), fields=field.related_model._meta.track_fields)
                 else:
                     new_value = getattr(new_instance, field_name)
             except ObjectDoesNotExist:
@@ -653,13 +662,17 @@ class SomeModel(models.Model, RevisionModelMixin):
                 # check if is foreign key --> if yes, get id
                 field = instance._meta.get_field(field_name)
 
-                if field.rel:
+                if hasattr(field, 'rel') and field.rel:
                     # related field, get the id
                     if isinstance(field.rel, ManyToManyRel):
                         # many to many related fields are special, we need to fetch the IDs using the manager
                         value = ",".join([str(item) for item in getattr(instance, field_name).all().values_list('id', flat=True)])
                     else:
                         value = getattr_orm(instance, field_name + "_id")
+                elif hasattr(field, 'field') and field.field.rel:
+                    # ToDo: check if field.related_model._meta has track_fields
+                    # related model with track fields - use .filter() to clear any caches
+                    value = serializers.serialize('json', getattr_orm(instance, field_name).filter(), fields=field.related_model._meta.track_fields)
                 else:
                     value = getattr_orm(instance, field_name)
             except (ObjectDoesNotExist, ValueError):
