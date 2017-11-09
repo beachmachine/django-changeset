@@ -55,7 +55,7 @@ _thread_locals = local()
 # on the parent (usually the `related_name`).
 options.DEFAULT_NAMES = options.DEFAULT_NAMES + \
                         ('track_fields', 'track_by', 'track_related', 'related_name_user', 'track_through',
-                         'track_soft_delete_by', 'track_on_related_model',
+                         'track_soft_delete_by', 'track_related_many',
                          'aggregate_changesets_within_seconds')
 
 
@@ -253,6 +253,7 @@ class SomeModel(models.Model, RevisionModelMixin):
         changed_fields = {}
         orig_data = getattr(self, '__original_data__', {})
 
+        # compare all fields in track_fields
         for field_name in getattr(self._meta, 'track_fields', []):
             orig_value = orig_data.get(field_name)
 
@@ -267,10 +268,6 @@ class SomeModel(models.Model, RevisionModelMixin):
                         new_value = ",".join([str(item) for item in getattr(self, field_name).all().values_list('id', flat=True)])
                     else:
                         new_value = getattr(self, field_name + "_id")
-                elif hasattr(field, 'field') and field.field.rel:
-                    # ToDo: check if field.related_model._meta has track_fields
-                    # related model with track fields - use .filter() to clear any caches
-                    new_value = serializers.serialize('json', getattr_orm(self, field_name).filter(), fields=field.related_model._meta.track_fields)
                 else:
                     new_value = getattr(self, field_name)
             except ObjectDoesNotExist:
@@ -279,6 +276,34 @@ class SomeModel(models.Model, RevisionModelMixin):
             # check if value has changed, and store it in changed_fields
             if orig_value != new_value:
                 changed_fields[field_name] = (orig_value, new_value)
+
+        # iterate over all related fields with many relationship that need to be tracked in detail
+        for relation_entry in getattr(self._meta, 'track_related_many', ()):
+            relation_field_name = relation_entry[0]
+            relation_track_fields = relation_entry[1]
+
+            orig_value = orig_data.get(relation_field_name)
+
+            try:
+                # get field
+                field = self._meta.get_field(relation_field_name)
+
+                if hasattr(field, 'field') and field.field.rel:
+                    new_value = serializers.serialize(
+                        'json',
+                        getattr_orm(self, relation_field_name).filter(),
+                        fields=relation_track_fields
+                    )
+                else:
+                    logger.error("track_related_many field '{}' is not a relation")
+                    new_value = None
+
+            except (ObjectDoesNotExist, ValueError):
+                new_value = None
+
+            # check if value has changed, and store it in changed_fields
+            if orig_value != new_value:
+                changed_fields[relation_field_name] = (orig_value, new_value)
 
         return changed_fields
 
@@ -368,6 +393,8 @@ class SomeModel(models.Model, RevisionModelMixin):
             return  # if there is already an change-set, we do not need to save a new initial one
 
         changed_fields = {}
+
+        # iterate over all fields that need to be tracked
         for field_name in getattr(new_instance._meta, 'track_fields', []):
             try:
                 # check if is foreign key --> if yes, only get the id (--> not a db lookup)
@@ -380,15 +407,35 @@ class SomeModel(models.Model, RevisionModelMixin):
                         new_value = ",".join([str(item) for item in getattr(new_instance, field_name).all().values_list('id', flat=True)])
                     else:
                         new_value = getattr_orm(new_instance, field_name + "_id")
-                elif hasattr(field, 'field') and field.field.rel:
-                    # ToDo: check if field.related_model._meta has track_fields
-                    # related model with track fields - use .filter() so we clear any caches
-                    new_value = serializers.serialize('json', getattr_orm(new_instance, field_name).filter(), fields=field.related_model._meta.track_fields)
                 else:
                     new_value = getattr(new_instance, field_name)
             except ObjectDoesNotExist:
                 new_value = None
             changed_fields[field_name] = (None, new_value)
+
+        # iterate over all related fields with many relationship that need to be tracked in detail
+        for relation_entry in getattr(new_instance._meta, 'track_related_many', ()):
+            relation_field_name = relation_entry[0]
+            relation_track_fields = relation_entry[1]
+
+            try:
+                # get field
+                field = new_instance._meta.get_field(relation_field_name)
+
+                if hasattr(field, 'field') and field.field.rel:
+                    new_value = serializers.serialize(
+                        'json',
+                        getattr_orm(new_instance, relation_field_name).filter(),
+                        fields=relation_track_fields
+                    )
+                else:
+                    logger.error("track_related_many field '{}' is not a relation")
+                    new_value = None
+
+            except (ObjectDoesNotExist, ValueError):
+                new_value = None
+
+            changed_fields[relation_field_name] = (None, new_value)
 
         change_set = ChangeSet()
         change_set.object_type = content_type
@@ -657,6 +704,7 @@ class SomeModel(models.Model, RevisionModelMixin):
         if not isinstance(instance, RevisionModelMixin):
             return
 
+        # iterate over all fields that need to be tracked
         for field_name in getattr(instance._meta, 'track_fields', []):
             try:
                 # check if is foreign key --> if yes, get id
@@ -669,10 +717,6 @@ class SomeModel(models.Model, RevisionModelMixin):
                         value = ",".join([str(item) for item in getattr(instance, field_name).all().values_list('id', flat=True)])
                     else:
                         value = getattr_orm(instance, field_name + "_id")
-                elif hasattr(field, 'field') and field.field.rel:
-                    # ToDo: check if field.related_model._meta has track_fields
-                    # related model with track fields - use .filter() to clear any caches
-                    value = serializers.serialize('json', getattr_orm(instance, field_name).filter(), fields=field.related_model._meta.track_fields)
                 else:
                     value = getattr_orm(instance, field_name)
             except (ObjectDoesNotExist, ValueError):
@@ -680,6 +724,31 @@ class SomeModel(models.Model, RevisionModelMixin):
 
             original_data[field_name] = value
 
+        # iterate over all related fields with many relationship that need to be tracked in detail
+        for relation_entry in getattr(instance._meta, 'track_related_many', ()):
+            relation_field_name = relation_entry[0]
+            relation_track_fields = relation_entry[1]
+
+            try:
+                # get field
+                field = instance._meta.get_field(relation_field_name)
+
+                if hasattr(field, 'field') and field.field.rel:
+                    value = serializers.serialize(
+                        'json',
+                        getattr_orm(instance, relation_field_name).filter(),
+                        fields=relation_track_fields
+                    )
+                else:
+                    logger.error("track_related_many field '{}' is not a relation")
+                    value = None
+
+            except (ObjectDoesNotExist, ValueError):
+                value = None
+
+            original_data[relation_field_name] = value
+
+        # store original data on the instance
         setattr(instance, '__original_data__', original_data)
 
 
@@ -712,4 +781,3 @@ m2m_changed.connect(
     RevisionModelMixin.m2m_changed,
     dispatch_uid="django_changeset.m2m_changed.subscriber",
 )
-
