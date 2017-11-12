@@ -54,43 +54,9 @@ _thread_locals = local()
 # is the name of the foreign key field, and the value the used field-name for the ChangeRecord
 # on the parent (usually the `related_name`).
 options.DEFAULT_NAMES = options.DEFAULT_NAMES + \
-                        ('track_fields', 'track_by', 'track_related', 'related_name_user', 'track_through',
+                        ('track_fields', 'track_by', 'track_related', 'track_through',
                          'track_soft_delete_by', 'track_related_many',
                          'aggregate_changesets_within_seconds')
-
-
-def get_all_objects_created_by_user(user, object_type):
-    """
-    returns all objects of type "object-type" that have been created by user
-    :param user: the user object
-    :type: django.contrib.auth.models.User
-    :param object_type: the content type object
-    :type object_type: django.contrib.contenttypes.models.ContentType
-    :return: a list with objects of type `object_type`
-    :rtype: list of object_type
-    """
-    # ToDo: This method could use a rewrite
-    queryset = ChangeSet.objects.filter(user=user, object_type=object_type)
-
-    # first, collect the primary keys (object_uuid) of all change_sets that look like a created object
-    pks = []
-    for change_set in queryset:
-        # get earliest change record
-        change_record = change_set.change_records.all().earliest()
-
-        # was this created by the user?
-        if change_record.change_set.user == user:
-            # must not be related, old value must be none and new value must be not none
-            if not change_record.is_related and change_record.old_value is None and change_record.new_value is not None:
-                # only add if it has not been added
-                if change_set.id not in pks:
-                    pks.append(change_set.object_uuid)
-
-    # get the class of this object_type / content_type
-    obj_class = get_model(app_label=object_type.app_label, model_name=object_type.model)
-
-    # and return all objects of that class with the given primary keys
-    return obj_class.objects.filter(pk__in=pks)
 
 
 class ChangesetVersionField(models.PositiveIntegerField):
@@ -124,19 +90,6 @@ class ConcurrentUpdateException(Exception):
 class RevisionModelMixin(object):
     """ django_changeset uses the RevisionModelMixin as a mixin class, which enables the changeset on a certain
     model """
-
-    # overwrite the constructor so we can patch a foreign key to the user
-    def __init__(self, *args, **kwargs):
-        super(RevisionModelMixin, self).__init__(*args, **kwargs)
-        # register the get method for related_name on the user model
-        related_name_user = getattr(self._meta, 'related_name_user', '')
-        # ToDo: Switch this to None instead of ''
-        # ToDo: I dont think this feature is used at all
-        if related_name_user != '':
-            User.add_to_class("get_" + related_name_user,
-                              lambda user:  # user will be set by the calling object afterwards
-                              get_all_objects_created_by_user(user=user,
-                                                              object_type=ContentType.objects.get_for_model(self)))
 
     def get_version_field(self):
         """ gets the version field by looking in _meta.fields, and checks if it is a ChangesetVersionField """
@@ -319,15 +272,22 @@ class SomeModel(models.Model, RevisionModelMixin):
         :param object_uuid: UUID of the child entity
         """
         object_uuid_field_name = getattr(self._meta, 'track_by', 'id')
+        object_uuid_field = self._meta.get_field(object_uuid_field_name)
         object_uuid = getattr(self, object_uuid_field_name)
         object_type = ContentType.objects.get_for_model(self)
 
         change_set = ChangeSet()
         change_set.object_type = object_type
-        change_set.object_uuid = object_uuid
+
+        if isinstance(object_uuid_field, models.UUIDField):
+            change_set.object_uuid = object_uuid
+            existing_changesets = ChangeSet.objects.filter(object_uuid=object_uuid, object_type=object_type)
+
+        else:
+            change_set.object_id = object_uuid
+            existing_changesets = ChangeSet.objects.filter(object_id=object_uuid, object_type=object_type)
 
         # are there any existing changesets?
-        existing_changesets = ChangeSet.objects.filter(object_uuid=object_uuid, object_type=object_type)
         if existing_changesets.exists():
             change_set.changeset_type = change_set.UPDATE_TYPE
 
@@ -387,10 +347,17 @@ class SomeModel(models.Model, RevisionModelMixin):
             return
 
         object_uuid_field_name = getattr(new_instance._meta, 'track_by', 'id')
+        object_uuid_field = new_instance._meta.get_field(object_uuid_field_name)
         object_uuid = getattr_orm(new_instance, object_uuid_field_name)
         content_type = ContentType.objects.get_for_model(new_instance)
 
-        change_set_count = ChangeSet.objects.filter(object_type=content_type, object_uuid=object_uuid).count()
+        if isinstance(object_uuid_field, models.UUIDField):
+            change_set_count = ChangeSet.objects.filter(object_type=content_type, object_uuid=object_uuid).count()
+
+        else:
+            change_set_count = ChangeSet.objects.filter(object_type=content_type, object_id=object_uuid).count()
+
+
         if change_set_count > 0:
             return  # if there is already an change-set, we do not need to save a new initial one
 
@@ -441,10 +408,17 @@ class SomeModel(models.Model, RevisionModelMixin):
 
         change_set = ChangeSet()
         change_set.object_type = content_type
-        change_set.object_uuid = object_uuid
 
-        # are there any existing changesets?
-        existing_changesets = ChangeSet.objects.filter(object_uuid=object_uuid, object_type=content_type)
+        if isinstance(object_uuid_field, models.UUIDField):
+            change_set.object_uuid = object_uuid
+            # are there any existing changesets?
+            existing_changesets = ChangeSet.objects.filter(object_uuid=object_uuid, object_type=content_type)
+
+        else:
+            change_set.object_id = object_uuid
+            # are there any existing changesets?
+            existing_changesets = ChangeSet.objects.filter(object_id=object_uuid, object_type=content_type)
+
         if existing_changesets.exists():
             change_set.changeset_type = change_set.UPDATE_TYPE
 
@@ -497,11 +471,17 @@ class SomeModel(models.Model, RevisionModelMixin):
                     # create a new change set
                     content_type = ContentType.objects.get_for_model(instance)
                     object_uuid_field_name = getattr(instance._meta, 'track_by', 'id')
+                    object_uuid_field = instance._meta.get_field(object_uuid_field_name)
 
                     change_set = ChangeSet()
 
                     change_set.object_type = content_type
-                    change_set.object_uuid = getattr_orm(instance, object_uuid_field_name)
+
+                    if isinstance(object_uuid_field, models.UUIDField):
+                        change_set.object_uuid = getattr_orm(instance, object_uuid_field_name)
+
+                    else:
+                        change_set.object_id = getattr_orm(instance, object_uuid_field_name)
 
                     change_set.changeset_type = change_set.UPDATE_TYPE
 
@@ -552,11 +532,16 @@ class SomeModel(models.Model, RevisionModelMixin):
             return
 
         object_uuid_field_name = getattr(new_instance._meta, 'track_by', 'id')
+        object_uuid_field = new_instance._meta.get_field(object_uuid_field_name)
         content_type = ContentType.objects.get_for_model(new_instance)
         object_uuid = getattr_orm(new_instance, object_uuid_field_name)
 
         # are there any existing changesets?
-        existing_changesets = ChangeSet.objects.filter(object_uuid=object_uuid, object_type=content_type)
+        if isinstance(object_uuid_field, models.UUIDField):
+            existing_changesets = ChangeSet.objects.filter(object_uuid=object_uuid, object_type=content_type)
+
+        else:
+            existing_changesets = ChangeSet.objects.filter(object_id=object_uuid, object_type=content_type)
 
         if existing_changesets.exists():
             new_instance.update_version_number(content_type)
@@ -602,12 +587,18 @@ class SomeModel(models.Model, RevisionModelMixin):
                 is_restore = True
 
         object_uuid_field_name = getattr(new_instance._meta, 'track_by', 'id')
+        object_uuid_field = new_instance._meta.get_field(object_uuid_field_name)
         content_type = ContentType.objects.get_for_model(new_instance)
 
         change_set = ChangeSet()
 
         change_set.object_type = content_type
-        change_set.object_uuid = getattr_orm(new_instance, object_uuid_field_name)
+
+        if isinstance(object_uuid_field, models.UUIDField):
+            change_set.object_uuid = getattr_orm(new_instance, object_uuid_field_name)
+
+        else:
+            change_set.object_id = getattr_orm(new_instance, object_uuid_field_name)
 
         # are there any existing changesets (without restore/soft_delete)?
         existing_changesets = ChangeSet.objects.filter(

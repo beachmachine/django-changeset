@@ -36,7 +36,7 @@ class ChangeSetQuerySetMixin(object):
 
 
         You also need to tell your model that you want to use the manager with this new queryset
-        
+
         class MyModel:
             ...
             objects = models.Manager.from_queryset(MyModelQuerySet)()
@@ -49,6 +49,7 @@ class ChangeSetQuerySetMixin(object):
         qs_deleted = MyModel.objects.deleted_by_current_user() # this last one does not work yet (TODO)
 
     """
+
     def is_staff_or_created_by_current_user(self, *args, **kwargs):
         """
         returns all objects that have been created by the user (or if staff, all)
@@ -59,47 +60,19 @@ class ChangeSetQuerySetMixin(object):
             return self.all()
         else:
             return self.created_by_current_user(args, kwargs)
-    
+
     def created_by_current_user(self, *args, **kwargs):
         """
         returns all objects that have been created by the user (based on the django changeset model)
         """
         user = get_current_user()
 
-        # get all changesets that were done by this user on this model and had type "INSERT"
-        objects = ChangeSet.objects.filter(user=user,
-                                           object_type=get_content_type_of(self.model),
-                                           changeset_type='I')
-        # get primary keys of those objects
-        object_uuids = objects.values_list('object_uuid', flat=True)
-
-        return self.filter(pk__in=object_uuids)
-
-    def deleted_by_current_user(self, *args, **kwargs):
-        """
-        returns all objects that have been (soft) deleted by the user (based on the django changeset model)
-        """
-        user = get_current_user()
-        # get all changesets that were done by this user on this model and had type "INSERT"
-        objects = ChangeSet.objects.filter(user=user,
-                                           object_type=get_content_type_of(self.model),
-                                           changeset_type='D')
-        # get primary keys of those objects
-        object_uuids = objects.values_list('object_uuid', flat=True)
-
-        return self.filter(pk__in=object_uuids)
+        return self.filter(changesets__changeset_type='I', changesets__user=user)
 
     def updated_by_current_user(self, *args, **kwargs):
         """
         returns all objects that have been updated by the user (based on the django changeset model)
         """
         user = get_current_user()
-        # get all changesets that were done by this user on this model and had type "INSERT"
-        objects = ChangeSet.objects.filter(user=user,
-                                           object_type=get_content_type_of(self.model),
-                                           changeset_type='U')
-        # get primary keys of those objects
-        object_uuids = objects.values_list('object_uuid', flat=True)
 
-        return self.filter(pk__in=object_uuids)
-
+        return self.filter(changesets__changeset_type='U', changesets__user=user)

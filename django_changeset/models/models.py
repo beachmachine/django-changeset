@@ -5,7 +5,6 @@ import uuid
 
 from django.db import models
 from django.contrib.contenttypes.models import ContentType
-from django.contrib.contenttypes.fields import GenericForeignKey
 from django.conf import settings
 
 from django.utils.translation import ugettext_lazy as _
@@ -86,12 +85,6 @@ class AbstractChangeSet(models.Model):
         null=False,
     )
 
-    # object_uuid = models.CharField(
-    #     verbose_name=_(u"Object UUID"),
-    #     max_length=255,
-    #     editable=False,
-    # )
-
     class Meta:
         app_label = 'django_changeset'
         get_latest_by = 'date'
@@ -112,19 +105,20 @@ class AbstractChangeSet(models.Model):
         return self.__unicode__()
 
 
-if hasattr(settings, "DJANGO_CHANGESET_PK_TYPE") and settings.DJANGO_CHANGESET_PK_TYPE == 'UUID':
-    class ChangeSet(AbstractChangeSet):
-        object_uuid = models.UUIDField(
-            verbose_name=_(u"Object UUID"),
-            editable=False,
-        )
-else:
-    class ChangeSet(AbstractChangeSet):
-        object_uuid = models.CharField(
-            verbose_name=_(u"Object UUID"),
-            max_length=255,
-            editable=False,
-        )
+class ChangeSet(AbstractChangeSet):
+    object_id = models.BigIntegerField(
+        verbose_name=_(u"Object ID"),
+        editable=False,
+        null=True,
+        db_index=True,
+    )
+
+    object_uuid = models.UUIDField(
+        verbose_name=_(u"Object UUID"),
+        editable=False,
+        null=True,
+        db_index=True,
+    )
 
 
 class ChangeRecord(models.Model):
