@@ -83,6 +83,7 @@ class AbstractChangeSet(models.Model):
         verbose_name=_(u"Object type"),
         editable=False,
         null=False,
+        on_delete=models.CASCADE
     )
 
     class Meta:
@@ -138,6 +139,7 @@ class ChangeRecord(models.Model):
         related_name="change_records",
         null=False,
         editable=False,
+        on_delete=models.CASCADE
     )
 
     field_name = models.CharField(

@@ -11,7 +11,6 @@ from django.db.models.signals import pre_save, post_save, post_init, m2m_changed
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.contenttypes.fields import GenericRelation
 from django.core.exceptions import ObjectDoesNotExist
-from django.utils.text import force_text
 from django.contrib.auth.models import User
 from django import forms
 from django.dispatch import receiver
