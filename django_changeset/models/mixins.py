@@ -3,30 +3,17 @@ import logging
 from functools import reduce
 from threading import local
 from contextlib import contextmanager
-from django.conf import settings
+
+from django import forms
 from django.core import serializers
 from django.db import models
 from django.db.models import options, ManyToManyRel
 from django.db.models.signals import pre_save, post_save, post_init, m2m_changed
 from django.contrib.contenttypes.models import ContentType
-from django.contrib.contenttypes.fields import GenericRelation
 from django.core.exceptions import ObjectDoesNotExist
-from django.contrib.auth.models import User
-from django import forms
-from django.dispatch import receiver
 from django.utils import timezone
+
 from django_userforeignkey.request import get_current_user
-
-
-# import get_model (different versions of django, django.db.models.get_model is deprecated for newer django versions)
-try:
-    from django.apps import apps
-
-    get_model = apps.get_model
-except ImportError:
-    # django < 1.7
-    from django.db.models import get_model
-
 from django_changeset.models import ChangeSet, ChangeRecord
 
 
@@ -125,16 +112,12 @@ class RevisionModelMixin(object):
 Add the following code to the model that inherits from RevisionModelMixin:
 
 from django.contrib.contenttypes.fields import GenericRelation
+from django_changeset.models.fields import ChangeSetRelation
 
 
 class SomeModel(models.Model, RevisionModelMixin):
     # ...            
-    changesets = GenericRelation(
-        ChangeSet,
-        content_type_field='object_type',
-        object_id_field='object_uuid'
-    )
-
+    changesets = ChangeSetRelation()
             """)
 
     @property
@@ -441,6 +424,7 @@ class SomeModel(models.Model, RevisionModelMixin):
 
     @staticmethod
     def m2m_changed(sender, **kwargs):
+        # ToDo: This method is completely untested and probably unreliable
         if not RevisionModelMixin.get_enabled():
             return
 

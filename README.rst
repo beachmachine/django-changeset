@@ -52,125 +52,70 @@ Quick start
 Example usage
 -------------
 
-Use ``RevisionModelMixin`` as a mixin class for your models and add the fields you want to track in the meta configuration:
+Use ``RevisionModelMixin`` as a mixin class for your models and add the fields you want to track in the meta
+ configuration and add a generic relation to ``ChangeSet`` using ``changesets = ChangeSetRelation()``:
+
+.. code-block:: python
+
+    from django.db import models
+
+    from django_changeset.models import RevisionModelMixin
+    from django_changeset.models.fields import ChangeSetRelation
+
+
+    class MyModel(models.Model, RevisionModelMixin):
+        class Meta:
+            track_fields = ('my_data', )  # track changes on my_data
+            track_related = ('my_ref', )  # track changes on a related model
+
+        my_data = models.CharField(max_length=64, verbose_name="Very important data you want to track")
+        my_ref = models.ForeignKey('SomeOtherModel', verbose_name="Very important relation", related_name='my_models')
+
+        # Generic Relation to ChangeSet
+        changesets = ChangeSetRelation()
+
+
+Querying ChangeSets via the changesets relation
+-----------------------------------------------
+
+By adding the ``RevisionModelMixin`` and ``ChangeSetRelation`` (a ``GenericRelation`` for the changeset), the following
+  features are added to your model:
+
+- Properties ``created_by``, ``created_at``, ``last_modified_by``, ``last_modified_at`` are made available for each object
+- Relation ``changesets`` is made available, allowing you to run queries like this one:
+ ``MyModel.objects.filter(changesets__changeset_type='I', changesets__user__username='johndoe')``
+
+
+Using ChangeSet with UUIDFields as Primary Key
+----------------------------------------------
+
+If your models use UUIDFields as a primary key, you just need to add a parameter to ``ChangeSetRelation``: ``object_id_field='object_uuid'``
+
+Please note that ``object_uuid`` is the name of an indexed ``UUIDField`` on the ``ChangeSet`` model.
 
 .. code-block:: python
 
     import uuid
 
     from django.db import models
-    from django_changeset.models import RevisionModelMixin
 
-    class MyModel(models.Model, RevisionModelMixin):
+    from django_changeset.models import RevisionModelMixin
+    from django_changeset.models.fields import ChangeSetRelation
+
+    class MyModelWithUuid(models.Model, RevisionModelMixin):
         class Meta:
-            track_by = 'my_pk'
             track_fields = ('my_data', )
             track_related = ('my_ref', )
 
-        my_pk = models.UUIDField(primary_key=True, editable=False, default=uuid.uuid4)
+        id = models.UUIDField(primary_key=True, editable=False, default=uuid.uuid4)
         my_data = models.CharField(max_length=64, verbose_name="Very important data you want to track")
         my_ref = models.ForeignKey('SomeOtherModel', verbose_name="Very important relation", related_name='my_models')
 
-
-Adding ChangeSets as a Generic Relation to your Model
------------------------------------------------------
-
-To make use of all features (e.g., accessing ``created_by``) of Django ChangeSet, it is necessary add a
- ``GenericRelation`` to the ChangeSet table like this (tested with Django 1.11 - ToDo test with others):
-
-.. code-block:: python
-
-    class MyModel(models.Model, RevisionModelMixin):
-        ...
-
-        changesets = GenericRelation(
-            ChangeSet,
-            content_type_field='object_type',
+        # Generic Relation to ChangeSet
+        changesets = ChangeSetRelation(
             object_id_field='object_uuid'
         )
 
-
-This enables you to use Django ORM query lookup Syntax on changesets (e.g., on the changeset type INSERT):
-
-.. code-block:: python
-
-    # select all my models that were created by user "johndoe"
-    MyModel.objects.filter(changesets__changeset_type='I', changesets__user__username='johndoe')
-
-
-
-Generic Relations with UUID
----------------------------
-
-The query from above does not work in Postgres when using the built-in ``UUID`` datatype, e.g.:
-
-.. code-block:: python
-
-    class MyModel(models.Model, RevisionModelMixin):
-        my_pk = models.UUIDField(primary_key=True, editable=False, default=uuid.uuid4)
-
-        ...
-
-        changesets = GenericRelation(
-            ChangeSet,
-            content_type_field='object_type',
-            object_id_field='object_uuid'
-        )
-
-
-This is due to the fact that the ``ChangeSet`` model uses a ``CharField(max_length=...)`` for the ``object_uuid``.
-It is possible to change this behaviour by using ``DJANGO_CHANGESET_PK_TYPE = "UUID"`` in your Django settings file.
-This will convert swap out the basic ``object_uuid`` field from:
-
-.. code-block:: python
-
-    object_uuid = models.CharField(
-        verbose_name=_(u"Object UUID"),
-        max_length=255,
-        editable=False,
-    )
-
-to this:
-
-.. code-block:: python
-
-    object_uuid = models.UUIDField(
-        verbose_name=_(u"Object UUID"),
-        editable=False,
-    )
-
-
-This obviously **requires** a migration! However, do **not** run the ``makemigrations`` command to do this (it would create a migration
- in the site-packages folder where you installed django-changeset). Instead, add a migration file manually to **your application** 
- (e.g., ``your_app``), which will look something like this:
-
-.. code-block:: python
-
-    # -*- coding: utf-8 -*-
-    # Generated by Django 1.11.2 on 2017-06-30 08:22
-    from __future__ import unicode_literals
-
-    from django.db import migrations, models
-
-
-    class Migration(migrations.Migration):
-        dependencies = [
-            ('django_changeset', '0002_add_index_changesettype'),
-            ('your_app', '0815_your_last_migration')
-        ]
-
-        replaces = ((TARGET_APP, __module__.rsplit('.', 1)[-1]),)
-
-        operations = [
-            migrations.AlterField(
-                model_name='changeset',
-                name='object_uuid',
-                field=models.UUIDField(editable=False, verbose_name='Object UUID'),
-            ),
-        ]
-
-        def __init__(self, name, app_label):
-            super(Migration, self).__init__(name, 'django_changeset')
 
 
 Performance Improvement when querying ChangeSets: Select Related User and User Profile
@@ -217,15 +162,9 @@ You can configure this by setting ``aggregate_changesets_within_seconds`` in the
         class Meta:
             aggregate_changesets_within_seconds = 60  # aggregate changesets created by the same user within 60 seconds
 
-        my_pk = models.UUIDField(primary_key=True, editable=False, default=uuid.uuid4)
+        # your model definition ...
 
-        ...
-
-        changesets = GenericRelation(
-            ChangeSet,
-            content_type_field='object_type',
-            object_id_field='object_uuid'
-        )
+        changesets = ChangeSetRelation()
 
 
 Soft Delete and Restore Functionality
@@ -244,17 +183,13 @@ You can enable tracking soft deletes and restores by setting ``track_soft_delete
             track_fields = ('....', 'deleted',)  # Make sure to include the `deleted` field in `track_fields`
             track_soft_delete_by = 'deleted'
 
-        my_pk = models.UUIDField(primary_key=True, editable=False, default=uuid.uuid4)
+        # your model definition ...
         
         deleted = models.BooleanField(default=False, verbose_name="Whether this object is soft deleted or not")
 
         ...
 
-        changesets = GenericRelation(
-            ChangeSet,
-            content_type_field='object_type',
-            object_id_field='object_uuid'
-        )
+        changesets = ChangeSetRelation()
 
 
 Access ChangeSets and ChangeRecords
