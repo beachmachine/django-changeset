@@ -15,16 +15,14 @@ Detailed documentation is in the docs subdirectory (see :file:`./docs/index.rst`
 Quick start
 -----------
 
-1. Use ``pip`` to install and download django-changeset (will automatically resolve the dependency on
-django_userforeignkey):
+1. Use ``pip`` to install and download django-changeset (this will automatically resolve the dependency on ``django-userforeignkey``):
 
 .. code-block:: bash
 
     pip install django-userforeignkey
-    pip install git+https://github.com/beachmachine/django-changeset.git
 
 
-2. Add ``django_userforeignkey`` and ``django_changeset`` to your INSTALLED_APPS setting like this:
+2. Add ``django_userforeignkey`` and ``django_changeset`` to your ``INSTALLED_APPS`` setting like this:
 
 .. code-block:: python
 
@@ -35,7 +33,7 @@ django_userforeignkey):
     ]
 
 
-3. Add ``django_userforeignkey.middleware.UserForeignKeyMiddleware`` to your ``MIDDLEWARE_CLASSES`` (Django 1.10 ``MIDDLEWARE`` also works) settings like this:
+3. Add ``django_userforeignkey.middleware.UserForeignKeyMiddleware`` to your ``MIDDLEWARE_CLASSES`` (or in case of Django 1.10+ ``MIDDLEWARE``) settings like this:
 
 .. code-block:: python
 
@@ -48,7 +46,7 @@ django_userforeignkey):
 
 
 
-Make sure to insert the ``django_userforeignkey`` middleware **after** the authentication middleware.
+**Note**: Make sure to insert the ``UserForeignKeyMiddleware`` **after** Djangos ``AuthenticationMiddleware``.
 
 
 Example usage
@@ -74,43 +72,11 @@ Use ``RevisionModelMixin`` as a mixin class for your models and add the fields y
         my_ref = models.ForeignKey('SomeOtherModel', verbose_name="Very important relation", related_name='my_models')
 
 
-You can access the changeset by calling the ``change_set`` property of an instance of ``MyModel`` as shown in the
-following example:
+Adding ChangeSets as a Generic Relation to your Model
+-----------------------------------------------------
 
-.. code-block:: python
-
-    print("------- CHANGE SETS (", len(somemodel.change_sets), ")---------")
-    for change_set in somemodel.change_sets:
-        # print change_set
-        print("Change was carried out at ", change_set.date, " by user ", change_set.user, " on model ", change_set.object_type)
-
-        print("  + CHANGE RECORDS (", len(change_set.change_records.all()), "): ")
-        for change_record in change_set.change_records.all():
-            print("\t", change_record)
-            print("\tIs change on a related field?", change_record.is_related)
-            # related fields: we only know that something new has been added. we know the PK, but not the object itself
-            print("\t\tChanged field ", change_record.field_name, "(", change_record.field_verbose_name, ") from ",
-                  change_record.old_value, "(display:", change_record.old_value_display, ") to")
-            print("\t\t ", change_record.new_value, "(display:", change_record.new_value_display, ")")
-            if change_record.is_related:
-                print("\t\tRelated Object Info: ", change_record.related_object)
-        # TODO:
-        # change_set.created_at, change_set.created_by, change_set.last_modified_by, change_set.last_modified_at
-
-        print("-----")
-
-
-Known problems
---------------
-
-Do **not** use any of the following names in your models: ``created_at``, ``created_by``, ``change_sets``,
-``last_modified_by``, ``last_modified_at``, ``changed_data``
-
-
-Generic Relations
------------------
-
-It is possible to use Django Changeset with Djangos ``GenericRelation`` like this (tested with Django 1.11):
+To make use of all features (e.g., accessing ``created_by``) of Django ChangeSet, it is necessary add a
+ ``GenericRelation`` to the ChangeSet table like this (tested with Django 1.11 - ToDo test with others):
 
 .. code-block:: python
 
@@ -124,11 +90,12 @@ It is possible to use Django Changeset with Djangos ``GenericRelation`` like thi
         )
 
 
-This allows the Django ORM to use queries on changeset (e.g., on the changeset type INSERT):
+This enables you to use Django ORM query lookup Syntax on changesets (e.g., on the changeset type INSERT):
 
 .. code-block:: python
 
-    MyModel.objects.filter(changesets__changeset_type='I')
+    # select all my models that were created by user "johndoe"
+    MyModel.objects.filter(changesets__changeset_type='I', changesets__user__username='johndoe')
 
 
 
@@ -173,8 +140,9 @@ to this:
     )
 
 
-This obviously **requires** a migration! Do **not** run the ``makemigrations`` command to do this. Instead, add a
-migration file manually to **your application** (e.g., ``your_app``), which will look something like this:
+This obviously **requires** a migration! However, do **not** run the ``makemigrations`` command to do this (it would create a migration
+ in the site-packages folder where you installed django-changeset). Instead, add a migration file manually to **your application** 
+ (e.g., ``your_app``), which will look something like this:
 
 .. code-block:: python
 
@@ -205,11 +173,11 @@ migration file manually to **your application** (e.g., ``your_app``), which will
             super(Migration, self).__init__(name, 'django_changeset')
 
 
-Select Related User and User Profile
-------------------------------------
+Performance Improvement when querying ChangeSets: Select Related User and User Profile
+--------------------------------------------------------------------------------------
 
-There is a simple QuerySet Manager for the ChangeSet model, which automatically joins the ChangeSet table with the
-django user table:
+Whenever you query/filter on the ChangeSets, you will most likely want to include information about the user. Therefore we modified the default
+behaviour of the ChangeSet QuerySet Manager to automatically join the ChangeSet table via the user foreign key. 
 
 .. code-block:: python
 
@@ -223,11 +191,15 @@ django user table:
         )
 
 
-This can be configured with the setting ``DJANGO_CHANGESET_SELECT_RELATED``, e.g. if you want to add the userprofile:
+This can furthermore be configured with the setting ``DJANGO_CHANGESET_SELECT_RELATED``, e.g. if you not only want to join this with information 
+ from the user table, but also information from the userprofile table:
 
 .. code-block:: python
 
     DJANGO_CHANGESET_SELECT_RELATED=["user", "user__userprofile"]
+
+
+If you want to disable this feature, just set ``DJANGO_CHANGESET_SELECT_RELATED=[]``.
 
 
 Automatically Aggregate Changesets and Changerecords
@@ -256,3 +228,89 @@ You can configure this by setting ``aggregate_changesets_within_seconds`` in the
         )
 
 
+Soft Delete and Restore Functionality
+-------------------------------------
+
+Django Changeset supports soft-deleting aswell as restoring an object. Those actions will
+be marked with changeset type ``R`` (``ChangeSet.RESTORE_TYPE``) for restore, and ``S`` (``ChangeSet.SOFT_DELETE_TYPE``) for soft delete.
+
+
+You can enable tracking soft deletes and restores by setting ``track_soft_delete_by`` aswell as ``track_fields`` accordingly in the models meta class, e.g.:
+
+.. code-block:: python
+
+    class MyModel(models.Model, RevisionModelMixin):
+        class Meta:
+            track_fields = ('....', 'deleted',)  # Make sure to include the `deleted` field in `track_fields`
+            track_soft_delete_by = 'deleted'
+
+        my_pk = models.UUIDField(primary_key=True, editable=False, default=uuid.uuid4)
+        
+        deleted = models.BooleanField(default=False, verbose_name="Whether this object is soft deleted or not")
+
+        ...
+
+        changesets = GenericRelation(
+            ChangeSet,
+            content_type_field='object_type',
+            object_id_field='object_uuid'
+        )
+
+
+Access ChangeSets and ChangeRecords
+-----------------------------------
+
+ToDo
+
+You can access the changeset by calling the ``change_set`` property of an instance of ``MyModel`` as shown in the
+following example:
+
+.. code-block:: python
+
+    print("------- CHANGE SETS (", len(somemodel.change_sets), ")---------")
+    for change_set in somemodel.change_sets:
+        # print change_set
+        print("Change was carried out at ", change_set.date, " by user ", change_set.user, " on model ", change_set.object_type)
+
+        print("  + CHANGE RECORDS (", len(change_set.change_records.all()), "): ")
+        for change_record in change_set.change_records.all():
+            print("\t", change_record)
+            print("\tIs change on a related field?", change_record.is_related)
+            # related fields: we only know that something new has been added. we know the PK, but not the object itself
+            print("\t\tChanged field ", change_record.field_name, "(", change_record.field_verbose_name, ") from ",
+                  change_record.old_value, "(display:", change_record.old_value_display, ") to")
+            print("\t\t ", change_record.new_value, "(display:", change_record.new_value_display, ")")
+            if change_record.is_related:
+                print("\t\tRelated Object Info: ", change_record.related_object)
+        # TODO:
+        # change_set.created_at, change_set.created_by, change_set.last_modified_by, change_set.last_modified_at
+
+        print("-----")
+
+
+Known problems
+--------------
+
+Do **not** use any of the following names in your models: ``created_at``, ``created_by``, ``changesets``,
+``last_modified_by``, ``last_modified_at``, ``changed_data``
+
+
+Maintainers
+-----------
+This repository is currently maintained by
+
+- beachmachine
+- ChristianKreuzberger
+
+Pull Requests are welcome.
+
+License
+-------
+
+Django ChangeSet uses the BSD-3 Clause License, see LICENSE file.
+
+
+Changelog / Release History
+---------------------------
+
+Work in progress - No official release yet

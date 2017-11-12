@@ -130,7 +130,8 @@ class RevisionModelMixin(object):
         super(RevisionModelMixin, self).__init__(*args, **kwargs)
         # register the get method for related_name on the user model
         related_name_user = getattr(self._meta, 'related_name_user', '')
-
+        # ToDo: Switch this to None instead of ''
+        # ToDo: I dont think this feature is used at all
         if related_name_user != '':
             User.add_to_class("get_" + related_name_user,
                               lambda user:  # user will be set by the calling object afterwards
@@ -144,11 +145,12 @@ class RevisionModelMixin(object):
                 return field
         return None
 
-    """
-    Check if version number is the same, and update it
-    """
-
     def update_version_number(self, content_type):
+        """
+        Check if version number is the same, and update it
+        :param content_type:
+        :return:
+        """
         version_field = self.get_version_field()
 
         if not version_field:
@@ -593,6 +595,7 @@ class SomeModel(models.Model, RevisionModelMixin):
             # determine whether this is a soft delete or a trash
             change_record = changed_fields[track_soft_delete_by]
 
+            # ToDo: Why are we accessing [1] here?
             if change_record[1] is True:
                 is_soft_delete = True
             else:
