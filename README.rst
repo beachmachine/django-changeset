@@ -75,13 +75,35 @@ Use ``RevisionModelMixin`` as a mixin class for your models and add the fields y
         changesets = ChangeSetRelation()
 
 
+Note: If you want to have access to the properties ``created_by``, ``created_at``, ``last_modified_by``, ``last_modified_at``,
+you need to inherit from ``CreatedModifiedByMixIn`` aswell as ``RevisionModelMixin``:
+
+.. code-block:: python
+
+    from django.db import models
+
+    from django_changeset.models import RevisionModelMixin
+    from django_changeset.models.fields import ChangeSetRelation
+
+
+    class MyModel(models.Model, RevisionModelMixin, CreatedModifiedByMixIn):
+        class Meta:
+            track_fields = ('my_data', )  # track changes on my_data
+            track_related = ('my_ref', )  # track changes on a related model
+
+        my_data = models.CharField(max_length=64, verbose_name="Very important data you want to track")
+        my_ref = models.ForeignKey('SomeOtherModel', verbose_name="Very important relation", related_name='my_models')
+
+        # Generic Relation to ChangeSet
+        changesets = ChangeSetRelation()
+
+
 Querying ChangeSets via the changesets relation
 -----------------------------------------------
 
-By adding the ``RevisionModelMixin`` and ``ChangeSetRelation`` (a ``GenericRelation`` for the changeset), the following
-  features are added to your model:
+By inheriting from the ``RevisionModelMixin`` and ``CreatedModifiedByMixIn`` mixins, and adding an attribute of type ``ChangeSetRelation`` (a ``GenericRelation`` for the changeset), the following features are added to your model:
 
-- Properties ``created_by``, ``created_at``, ``last_modified_by``, ``last_modified_at`` are made available for each object
+- Properties ``created_by``, ``created_at``, ``last_modified_by``, ``last_modified_at`` are made available for each object (``CreatedModifiedByMixIn``)
 - Relation ``changesets`` is made available, allowing you to run queries like this one:
  ``MyModel.objects.filter(changesets__changeset_type='I', changesets__user__username='johndoe')``
 
@@ -99,10 +121,10 @@ Please note that ``object_uuid`` is the name of an indexed ``UUIDField`` on the 
 
     from django.db import models
 
-    from django_changeset.models import RevisionModelMixin
+    from django_changeset.models import RevisionModelMixin, CreatedModifiedByMixIn
     from django_changeset.models.fields import ChangeSetRelation
 
-    class MyModelWithUuid(models.Model, RevisionModelMixin):
+    class MyModelWithUuid(models.Model, RevisionModelMixin, CreatedModifiedByMixIn):
         class Meta:
             track_fields = ('my_data', )
             track_related = ('my_ref', )
@@ -158,7 +180,7 @@ You can configure this by setting ``aggregate_changesets_within_seconds`` in the
 
 .. code-block:: python
 
-    class MyModel(models.Model, RevisionModelMixin):
+    class MyModel(models.Model, RevisionModelMixin, CreatedModifiedByMixIn):
         class Meta:
             aggregate_changesets_within_seconds = 60  # aggregate changesets created by the same user within 60 seconds
 
@@ -178,7 +200,7 @@ You can enable tracking soft deletes and restores by setting ``track_soft_delete
 
 .. code-block:: python
 
-    class MyModel(models.Model, RevisionModelMixin):
+    class MyModel(models.Model, RevisionModelMixin, CreatedModifiedByMixIn):
         class Meta:
             track_fields = ('....', 'deleted',)  # Make sure to include the `deleted` field in `track_fields`
             track_soft_delete_by = 'deleted'
@@ -221,13 +243,6 @@ following example:
         # change_set.created_at, change_set.created_by, change_set.last_modified_by, change_set.last_modified_at
 
         print("-----")
-
-
-Known problems
---------------
-
-Do **not** use any of the following names in your models: ``created_at``, ``created_by``, ``changesets``,
-``last_modified_by``, ``last_modified_at``, ``changed_data``
 
 
 Maintainers
