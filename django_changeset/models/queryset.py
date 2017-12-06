@@ -67,7 +67,7 @@ class ChangeSetQuerySetMixin(object):
         """
         user = get_current_user()
 
-        return self.filter(changesets__changeset_type='I', changesets__user=user)
+        return self.filter(created_by=user)
 
     def updated_by_current_user(self, *args, **kwargs):
         """
@@ -75,4 +75,4 @@ class ChangeSetQuerySetMixin(object):
         """
         user = get_current_user()
 
-        return self.filter(changesets__changeset_type='U', changesets__user=user)
+        return self.filter(last_modified_by=user)

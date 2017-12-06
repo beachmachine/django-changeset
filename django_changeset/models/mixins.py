@@ -12,8 +12,10 @@ from django.db.models.signals import pre_save, post_save, post_init, m2m_changed
 from django.contrib.contenttypes.models import ContentType
 from django.core.exceptions import ObjectDoesNotExist
 from django.utils import timezone
+from django.utils.translation import ugettext_lazy as _
 
 from django_userforeignkey.request import get_current_user
+from django_userforeignkey.models.fields import UserForeignKey
 from django_changeset.models import ChangeSet, ChangeRecord
 
 
@@ -73,6 +75,44 @@ class ConcurrentUpdateException(Exception):
         self.latest_version_number = latest_version_number
 
 
+class CreatedModifiedByMixIn(models.Model):
+    """
+    Mixin which adds Created By, Modified By aswell as Timestamps to your model
+    """
+    class Meta:
+        abstract = True
+
+    created_by = UserForeignKey(
+        verbose_name=_(u"User that created this element"),
+        auto_user_add=True,  # sets the current user when the element is created
+        null=True,
+        related_name='%(class)s_created'
+    )
+
+    created_at = models.DateTimeField(
+        verbose_name=_(u"Date when this element was created"),
+        auto_now_add=True,  # sets the date when the element is created
+        editable=False,
+        null=True,
+        db_index=True,
+    )
+
+    last_modified_by = UserForeignKey(
+        verbose_name=_(u"User that last modified this element"),
+        auto_user=True,  # sets the current user everytime the element is saved
+        null=True,
+        related_name='%(class)s_modified'
+    )
+
+    last_modified_at = models.DateTimeField(
+        verbose_name=_(u"Date when this element was last modified"),
+        auto_now=True,  # sets the date everytime the element is saved
+        editable=False,
+        null=True,
+        db_index=True,
+    )
+
+
 class RevisionModelMixin(object):
     """ django_changeset uses the RevisionModelMixin as a mixin class, which enables the changeset on a certain
     model """
@@ -121,22 +161,22 @@ class SomeModel(models.Model, RevisionModelMixin):
             """)
 
     @property
-    def created_by(self):
+    def cs_created_by(self):
         self.check_for_changesets_attribute()
         return self.changesets.filter(changeset_type='I').first().user
 
     @property
-    def created_at(self):
+    def cs_created_at(self):
         self.check_for_changesets_attribute()
         return self.changesets.filter(changeset_type='I').first().date
 
     @property
-    def last_modified_by(self):
+    def cs_last_modified_by(self):
         self.check_for_changesets_attribute()
         return self.changesets.last().user
 
     @property
-    def last_modified_at(self):
+    def cs_last_modified_at(self):
         self.check_for_changesets_attribute()
         return self.changesets.last().date
 
@@ -739,6 +779,7 @@ pre_save.connect(
     RevisionModelMixin.update_model_version_number,
     dispatch_uid="django_changeset.update_model_version_number.subscriber"
 )
+
 # on post save: save model changes (changes are determined based on original model data)
 post_save.connect(
     RevisionModelMixin.save_model_revision,
