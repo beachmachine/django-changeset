@@ -10,7 +10,7 @@ os.chdir(os.path.normpath(os.path.join(os.path.abspath(__file__), os.pardir)))
 
 setup(
     name='django-changeset',
-    version='0.11.0',
+    version='0.11.1',
     packages=find_packages(),
     include_package_data=True,
     license='BSD License',
@@ -20,7 +20,7 @@ setup(
     author='Andreas Stocker',
     author_email='andreas@ks.co.at',
     install_requires=[
-        'django-userforeignkey>=0.1',
+        'django-userforeignkey>=0.2',
     ],
     classifiers=[
         'Environment :: Web Environment',
