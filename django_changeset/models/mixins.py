@@ -597,8 +597,8 @@ class SomeModel(models.Model, RevisionModelMixin):
         # get track_soft_deleted_by from the current model
         track_soft_delete_by = getattr(new_instance._meta, 'track_soft_delete_by', None)
         if track_soft_delete_by and track_soft_delete_by in changed_fields:
-            if len(changed_fields) > 1:
-                raise Exception("""Can not modify more than one field if track_soft_delete_by is changed""")
+            # if len(changed_fields) > 1:
+            #     raise Exception("""Can not modify more than one field if track_soft_delete_by is changed""")
 
             # determine whether this is a soft delete or a trash
             change_record = changed_fields[track_soft_delete_by]
