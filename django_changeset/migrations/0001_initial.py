@@ -40,7 +40,7 @@ class Migration(migrations.Migration):
                 ('date', models.DateTimeField(auto_now_add=True, verbose_name='Date')),
                 ('object_uuid', models.CharField(editable=False, max_length=255, verbose_name='Object UUID')),
                 ('object_type', models.ForeignKey(editable=False, on_delete=django.db.models.deletion.CASCADE, to='contenttypes.ContentType', verbose_name='Object type')),
-                ('user', django_userforeignkey.models.fields.UserForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='all_changes', to=settings.AUTH_USER_MODEL, verbose_name='User')),
+                ('user', django_userforeignkey.models.fields.UserForeignKey(blank=True, null=True, editable=False, on_delete=django.db.models.deletion.SET_NULL, related_name='all_changes', to=settings.AUTH_USER_MODEL, verbose_name='User')),
             ],
             options={
                 'get_latest_by': 'date',

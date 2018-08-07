@@ -5,7 +5,6 @@ import uuid
 
 from django.db import models
 from django.contrib.contenttypes.models import ContentType
-from django.contrib.contenttypes.fields import GenericForeignKey
 from django.conf import settings
 
 from django.utils.translation import ugettext_lazy as _
@@ -36,10 +35,15 @@ class AbstractChangeSet(models.Model):
     INSERT_TYPE = 'I'
     UPDATE_TYPE = 'U'
     DELETE_TYPE = 'D'
+    SOFT_DELETE_TYPE = 'S'
+    RESTORE_TYPE = 'R'
+
     CHANGESET_TYPE_CHOICES = (
         (INSERT_TYPE, 'Insert'),
         (UPDATE_TYPE, 'Update'),
-        (DELETE_TYPE, 'Delete')
+        (DELETE_TYPE, 'Delete'),
+        (SOFT_DELETE_TYPE, 'Soft Delete'),
+        (RESTORE_TYPE, 'Restore')
     )
 
     id = models.UUIDField(
@@ -79,13 +83,8 @@ class AbstractChangeSet(models.Model):
         verbose_name=_(u"Object type"),
         editable=False,
         null=False,
+        on_delete=models.CASCADE
     )
-
-    # object_uuid = models.CharField(
-    #     verbose_name=_(u"Object UUID"),
-    #     max_length=255,
-    #     editable=False,
-    # )
 
     class Meta:
         app_label = 'django_changeset'
@@ -107,19 +106,20 @@ class AbstractChangeSet(models.Model):
         return self.__unicode__()
 
 
-if hasattr(settings, "DJANGO_CHANGESET_PK_TYPE") and settings.DJANGO_CHANGESET_PK_TYPE == 'UUID':
-    class ChangeSet(AbstractChangeSet):
-        object_uuid = models.UUIDField(
-            verbose_name=_(u"Object UUID"),
-            editable=False,
-        )
-else:
-    class ChangeSet(AbstractChangeSet):
-        object_uuid = models.CharField(
-            verbose_name=_(u"Object UUID"),
-            max_length=255,
-            editable=False,
-        )
+class ChangeSet(AbstractChangeSet):
+    object_id = models.BigIntegerField(
+        verbose_name=_(u"Object ID"),
+        editable=False,
+        null=True,
+        db_index=True,
+    )
+
+    object_uuid = models.UUIDField(
+        verbose_name=_(u"Object UUID"),
+        editable=False,
+        null=True,
+        db_index=True,
+    )
 
 
 class ChangeRecord(models.Model):
@@ -139,6 +139,7 @@ class ChangeRecord(models.Model):
         related_name="change_records",
         null=False,
         editable=False,
+        on_delete=models.CASCADE
     )
 
     field_name = models.CharField(
