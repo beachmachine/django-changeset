@@ -10,7 +10,7 @@ os.chdir(os.path.normpath(os.path.join(os.path.abspath(__file__), os.pardir)))
 
 setup(
     name='django-changeset',
-    version='0.11.2',
+    version='1.0rc1',
     packages=find_packages(),
     include_package_data=True,
     license='BSD License',
@@ -20,13 +20,14 @@ setup(
     author='Andreas Stocker',
     author_email='andreas@ks.co.at',
     install_requires=[
-        'django-userforeignkey>=0.2',
+        'django-userforeignkey>=0.3',
     ],
     classifiers=[
         'Environment :: Web Environment',
         'Framework :: Django',
-        'Framework :: Django :: 1.8',
         'Framework :: Django :: 1.11',
+        'Framework :: Django :: 2.0',
+        'Framework :: Django :: 2.1',
         'Intended Audience :: Developers',
         'License :: OSI Approved :: BSD License',
         'Operating System :: OS Independent',

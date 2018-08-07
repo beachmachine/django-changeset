@@ -6,20 +6,20 @@ Django ChangeSet
     :target: https://travis-ci.org/beachmachine/django-changeset
 
 Django ChangeSet is a simple Django app that will give your models the possibility to track all changes. It depends on
-``django_userforeignkey`` to determine the users doing the changes. 
+``django_userforeignkey`` to determine the current user doing the change(s).
 
-Currently, Django 1.8 (Python 2.7, Python 3.3+), Django 1.9 (Python 2.7, Python 3.4+), Django 1.10 (Python 2.7, Python 3.5+) and Django 1.11 are supported.
+Currently, Django 1.11, 2.0 and 2.1 are supported.
 
 Detailed documentation is in the docs subdirectory (see :file:`./docs/index.rst`).
 
 Quick start
 -----------
 
-1. Use ``pip`` to install and download django-changeset (this will automatically resolve the dependency on ``django-userforeignkey``):
+1. Use ``pip`` to install and download django-changeset (and ``django-userforeignkey``):
 
 .. code-block:: bash
 
-    pip install django-userforeignkey
+    pip install django-changeset
 
 
 2. Add ``django_userforeignkey`` and ``django_changeset`` to your ``INSTALLED_APPS`` setting like this:
@@ -33,11 +33,11 @@ Quick start
     ]
 
 
-3. Add ``django_userforeignkey.middleware.UserForeignKeyMiddleware`` to your ``MIDDLEWARE_CLASSES`` (or in case of Django 1.10+ ``MIDDLEWARE``) settings like this:
+3. Add ``django_userforeignkey.middleware.UserForeignKeyMiddleware`` to your ``MIDDLEWARE`` settings like this:
 
 .. code-block:: python
 
-    MIDDLEWARE_CLASSES = (
+    MIDDLEWARE = (
         ...
         'django.contrib.auth.middleware.AuthenticationMiddleware',
         ...
@@ -53,7 +53,7 @@ Example usage
 -------------
 
 Use ``RevisionModelMixin`` as a mixin class for your models and add the fields you want to track in the meta
- configuration and add a generic relation to ``ChangeSet`` using ``changesets = ChangeSetRelation()``:
+ configuration using ``track_fields`` and ``track_related``. Also add a generic relation to ``ChangeSet`` using ``changesets = ChangeSetRelation()``:
 
 .. code-block:: python
 
