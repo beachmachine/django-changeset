@@ -2,6 +2,8 @@
 Django ChangeSet
 ================
 
+Work in Progress - a new version is coming out soon(TM)
+
 .. image:: https://travis-ci.org/beachmachine/django-changeset.svg?branch=master
     :target: https://travis-ci.org/beachmachine/django-changeset
 
