@@ -1,7 +1,7 @@
 *.pyc
 *.pyo
 dist/**
-django_userforeignkey.egg-info/**
+django_changeset.egg-info/**
 venv/
 .tox/
 build/
