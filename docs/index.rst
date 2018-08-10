@@ -3,21 +3,21 @@ Django ChangeSet
 ================
 
 Django ChangeSet is a simple Django app that will give your models the possibility to track all changes. It depends on
-"django_userforeignkey" to determine the users doing the changes. It is compatible with Django 1.8 and 1.9, and runs
-with both, Python 2.7+ and 3.4+.
+``django_userforeignkey`` to determine the current user doing the change(s).
+
+Currently, Django 1.11, 2.0 and 2.1 are supported.
 
 Getting Started
 ---------------
 
-1. Use ``pip`` to install and download django-changeset (will automatically resolve the dependency on
-``django_userforeignkey``):
+1. Use ``pip`` to install and download django-changeset (and ``django-userforeignkey``):
 
 .. code-block:: bash
 
-    pip install git+https://github.com/beachmachine/django-changeset.git
+    pip install django-changeset
 
 
-2. Add ``django_userforeignkey`` and ``django_changeset`` to your INSTALLED_APPS setting like this:
+2. Add ``django_userforeignkey`` and ``django_changeset`` to your ``INSTALLED_APPS`` like this:
 
 .. code-block:: python
 
@@ -28,11 +28,11 @@ Getting Started
     ]
 
 
-3. Add ``django_userforeignkey.middleware.UserForeignKeyMiddleware`` to your MIDDLEWARE_CLASSES settings like this:
+3. Add ``django_userforeignkey.middleware.UserForeignKeyMiddleware`` to your ``MIDDLEWARE`` like this:
 
 .. code-block:: python
 
-    MIDDLEWARE_CLASSES = (
+    MIDDLEWARE = (
         ...
         'django.contrib.auth.middleware.AuthenticationMiddleware',
         ...
@@ -40,13 +40,98 @@ Getting Started
     )
 
 
-  Make sure to insert the ``django_userforeignkey`` middleware **after** the authentication middleware.
+**Note**: Make sure to insert the ``django_userforeignkey`` middleware **after** the authentication middleware.
 
 
-4. In your models, you need to use ``RevisionModelMixin`` as a mixin class all models that you want to track. This will do two things:
+Example Usage 1: Track a model with a UUID as Primary Key
+---------------------------------------------------------
 
-  - Your object will be tracked based on the config defined in the meta class (using ``track_by``, ``track_fields`` and ``track_related``)
-  - Your object will be extended with properties that allow you to access the changeset/revisions (e.g., ``change_sets``, ``created_by``, ``created_at``, ...)
+1. Create a new Base Model Class like this:
+
+.. code:: python
+
+    from django.db import models
+
+    class BaseModel(models.Model):
+        """
+        BaseModel is needed for proper MRO within Python/Django Models
+        """
+        class Meta:
+            abstract = True
+        pass
+
+
+2. Make sure your models inherit from your ``BaseModel``, ``CreatedModifiedByMixin`` and ``RevisionModelMixin`` (the order here is important for Python to perform proper MRO resolution):
+
+.. code:: python
+
+    from django_changeset.models import CreatedModifiedByMixin, RevisionModelMixin
+
+    class Poll(BaseModel, CreatedModifiedByMixin, RevisionModelMixin):
+        class Meta:
+            track_fields = ('question', 'pub_date',)
+
+        id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+
+        question = models.CharField(max_length=200)
+        pub_date = models.DateTimeField(verbose_name="Publication date of poll")
+
+        def __str__(self):
+            return self.question
+
+
+3. For bonus features, add a generic relation to the ``ChangeSet`` model and a ``version_number`` field:
+
+.. code:: python
+
+    class Poll(BaseModel, CreatedModifiedByMixin, RevisionModelMixin):
+        class Meta:
+            track_fields = ('question', 'pub_date',)
+
+        # ...
+
+        # add relation to changeset using object_uuid, as our primary key is a UUIDField
+        changesets = ChangeSetRelation(
+            object_id_field='object_uuid'
+        )
+
+        # define a version field that automatically increases on every change of the model
+        version_number = ChangesetVersionField()
+
+
+Example Usage 2: Minimum example
+--------------------------------
+
+2. Make sure your models inherit from your ``models.Model`` and ``RevisionModelMixin``:
+
+.. code:: python
+
+    from django_changeset.models import RevisionModelMixin
+
+    class Poll(models.Model, RevisionModelMixin):
+        class Meta:
+            track_fields = ('question', 'pub_date',)
+
+        question = models.CharField(max_length=200)
+        pub_date = models.DateTimeField(verbose_name="Publication date of poll")
+
+        def __str__(self):
+            return self.question
+
+
+3. For bonus features, add a generic relation to the ``ChangeSet`` model:
+
+.. code:: python
+
+    class Poll(models.Model, RevisionModelMixin):
+        class Meta:
+            track_fields = ('question', 'pub_date',)
+
+        # ...
+
+        # add relation to changeset using object_uuid, as our primary key is a UUIDField
+        changesets = ChangeSetRelation()
+
 
 
 Configuration
@@ -84,7 +169,7 @@ model should be tracked.
     from django.db import models
     from django_changeset.models import RevisionModelMixin
 
-    class MyModel(models.Model, RevisionModelMixin):
+    class MyModel(BaseModelWithChangeSet, RevisionModelMixin):
         class Meta:
             track_by = 'my_pk'
             track_fields = ('my_data', )
@@ -95,9 +180,13 @@ model should be tracked.
         my_ref = models.ForeignKey('SomeOtherModel', verbose_name="Very important relation", related_name='my_models')
 
 
+In addition, the following attributes can be used to customize the behaviour:
 
-**NOTE**: Do **not** use any of the following names in your models: ``created_at``, ``created_by``, ``change_sets``,
-``last_modified_by``, ``last_modified_at``, ``changed_data``
+- ``aggregate_changesets_within_seconds`` (default: `0`)
+  If another changeset is created within the specified time by the same user, the changesets are merged/aggregated. Can be deactivated by setting to 0.
+
+- ``track_soft_delete_by`` (default: `None`)
+  Allows tracking soft deletes
 
 
 Properties
@@ -143,46 +232,79 @@ following example:
 
 
 
-Accessing the Changeset of a User (all changes that the user ever did)
-----------------------------------------------------------------------
+
+Performance Improvement when querying ChangeSets: Select Related User and User Profile
+--------------------------------------------------------------------------------------
+
+Whenever you query/filter on the ChangeSets, you will most likely want to include information about the user. Therefore we modified the default
+behaviour of the ChangeSet QuerySet Manager to automatically join the ChangeSet table via the user foreign key.
 
 .. code-block:: python
 
-    print("------- CHANGE SETS OF USER (", len(someuser.all_changes), ")---------")
-    for change_set in someuser.all_changess:
-        # print change_set
-        print("Change was carried out at ", change_set.date, " by user ", change_set.user, " on model ", change_set.object_type)
-        # ... see above
+    class ChangeSetManager(models.Manager):
+    """
+    ChangeSet Manager that forces all ChangeSet queries to contain at least the "user" foreign relation
+    """
+    def get_queryset(self):
+        return super(ChangeSetManager, self).get_queryset().select_related(
+            "user"
+        )
 
 
-Using filters `created_by`, `updated_by`, `deleted_by`
-------------------------------------------------------
-
-We implemented a mixin for Djangos ``QuerySet``, which allows you to query objects like this:
-
-
-.. code-block:: python
-
-    MyModel.objects.created_by_current_user()
-    MyModel.objects.updated_by_current_user()
-
-
-Internally, this is nothing other than a subquery over the ``ChangeSet`` model and the current ``MyModel``. To use this,
-you need to add a custom queryset and a custom manager, like shown below.
-
+This can furthermore be configured with the setting ``DJANGO_CHANGESET_SELECT_RELATED``, e.g. if you not only want to join this with information
+ from the user table, but also information from the userprofile table:
 
 .. code-block:: python
 
-    from django_changeset.models.querysets import ChangeSetQuerySetMixin
-    from django.db.models import QuerySet
+    DJANGO_CHANGESET_SELECT_RELATED=["user", "user__userprofile"]
 
-    class MyModelQuerySet(QuerySet, ChangeSetQuerySetMixin):
-        pass
 
-    class MyModel:
+If you want to disable this feature, just set ``DJANGO_CHANGESET_SELECT_RELATED=[]``.
+
+
+Automatically Aggregate Changesets and Changerecords
+----------------------------------------------------
+
+Django Changeset can automatically aggregate changests and changerecords, if they are created by the same user within
+a given timedelta. This is very useful if you are doing partial updates of your model (e.g., PATCH requests in a REST
+API).
+
+You can configure this by setting ``aggregate_changesets_within_seconds`` in the models meta class, e.g.:
+
+.. code-block:: python
+
+    class MyModel(models.Model, RevisionModelMixin, CreatedModifiedByMixin):
+        class Meta:
+            aggregate_changesets_within_seconds = 60  # aggregate changesets created by the same user within 60 seconds
+
+        # your model definition ...
+
+        changesets = ChangeSetRelation()
+
+
+Soft Delete and Restore Functionality
+-------------------------------------
+
+Django Changeset supports soft-deleting aswell as restoring an object. Those actions will
+be marked with changeset type ``R`` (``ChangeSet.RESTORE_TYPE``) for restore, and ``S`` (``ChangeSet.SOFT_DELETE_TYPE``) for soft delete.
+
+
+You can enable tracking soft deletes and restores by setting ``track_soft_delete_by`` aswell as ``track_fields`` accordingly in the models meta class, e.g.:
+
+.. code-block:: python
+
+    class MyModel(models.Model, RevisionModelMixin, CreatedModifiedByMixin):
+        class Meta:
+            track_fields = ('....', 'deleted',)  # Make sure to include the `deleted` field in `track_fields`
+            track_soft_delete_by = 'deleted'
+
+        # your model definition ...
+
+        deleted = models.BooleanField(default=False, verbose_name="Whether this object is soft deleted or not")
+
         ...
-        objects = models.Manager.from_queryset(MyModelQuerySet)()
 
+        changesets = ChangeSetRelation()
 
 
 Defining a 'foreign-key' like element
@@ -223,5 +345,5 @@ calling ``myuser.models``. To accomplish the same with the changeset, we added a
 
 
 This now allows you to access all models of a user by calling ``myuser.get_models()``. The method returns a list of
-objects (in this case MyModel). Please bear in mind that the method always starts with a "get_", regardless of what
+objects (in this case MyModel). Please bear in mind that the method always starts with a `get_`, regardless of what
 you specify in ``related_name_user``.

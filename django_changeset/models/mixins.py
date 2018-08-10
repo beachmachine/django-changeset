@@ -75,7 +75,7 @@ class ConcurrentUpdateException(Exception):
         self.latest_version_number = latest_version_number
 
 
-class CreatedModifiedByMixIn(models.Model):
+class CreatedModifiedByMixin(models.Model):
     """
     Mixin which adds Created By, Modified By aswell as Timestamps to your model
     """
@@ -111,6 +111,10 @@ class CreatedModifiedByMixIn(models.Model):
         null=True,
         db_index=True,
     )
+
+
+# keep the old behaviour
+CreatedModifiedByMixIn = CreatedModifiedByMixin
 
 
 class RevisionModelMixin(object):
@@ -149,16 +153,15 @@ class RevisionModelMixin(object):
     def check_for_changesets_attribute(self):
         if not hasattr(self, "changesets"):
             raise Exception("""Could not find field "changesets" on the model.
-Add the following code to the model that inherits from RevisionModelMixin:
+Make sure that your model has a field named "changesets" that looks like this:
 
-from django.contrib.contenttypes.fields import GenericRelation
-from django_changeset.models.fields import ChangeSetRelation
+    from django_changeset.models.fields import ChangeSetRelation
+    
+    class MyModel:
 
-
-class SomeModel(models.Model, RevisionModelMixin):
-    # ...            
-    changesets = ChangeSetRelation()
-            """)
+        # define generic reverse relation for the changeset table
+        changesets = ChangeSetRelation()
+""")
 
     @property
     def cs_created_by(self):
