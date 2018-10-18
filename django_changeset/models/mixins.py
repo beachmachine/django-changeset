@@ -79,6 +79,7 @@ class CreatedModifiedByMixin(models.Model):
     """
     Mixin which adds Created By, Modified By aswell as Timestamps to your model
     """
+
     class Meta:
         abstract = True
 
@@ -156,7 +157,7 @@ class RevisionModelMixin(object):
 Make sure that your model has a field named "changesets" that looks like this:
 
     from django_changeset.models.fields import ChangeSetRelation
-    
+
     class MyModel:
 
         # define generic reverse relation for the changeset table
@@ -245,7 +246,8 @@ Make sure that your model has a field named "changesets" that looks like this:
                     # related field, get the id
                     if isinstance(field.rel, ManyToManyRel):
                         # many to many related fields are special, we need to fetch the IDs using the manager
-                        new_value = ",".join([str(item) for item in getattr(self, field_name).all().values_list('id', flat=True)])
+                        new_value = ",".join(
+                            [str(item) for item in getattr(self, field_name).all().values_list('id', flat=True)])
                     else:
                         new_value = getattr(self, field_name + "_id")
                 else:
@@ -268,14 +270,14 @@ Make sure that your model has a field named "changesets" that looks like this:
                 # get field
                 field = self._meta.get_field(relation_field_name)
 
-                if hasattr(field, 'field') and field.field.rel:
+                if (hasattr(field, 'rel') and field.rel) or (hasattr(field, 'field') and field.field.rel):
                     new_value = serializers.serialize(
                         'json',
                         getattr_orm(self, relation_field_name).filter(),
                         fields=relation_track_fields
                     )
                 else:
-                    logger.error("track_related_many field '{}' is not a relation")
+                    logger.error("track_related_many field '{}' is not a relation".format(relation_field_name))
                     new_value = None
 
             except (ObjectDoesNotExist, ValueError):
@@ -382,7 +384,6 @@ Make sure that your model has a field named "changesets" that looks like this:
         else:
             change_set_count = ChangeSet.objects.filter(object_type=content_type, object_id=object_uuid).count()
 
-
         if change_set_count > 0:
             return  # if there is already an change-set, we do not need to save a new initial one
 
@@ -398,7 +399,8 @@ Make sure that your model has a field named "changesets" that looks like this:
                     # related field, get the id
                     if isinstance(field.rel, ManyToManyRel):
                         # many to many related fields are special, we need to fetch the IDs using the manager
-                        new_value = ",".join([str(item) for item in getattr(new_instance, field_name).all().values_list('id', flat=True)])
+                        new_value = ",".join([str(item) for item in
+                                              getattr(new_instance, field_name).all().values_list('id', flat=True)])
                     else:
                         new_value = getattr_orm(new_instance, field_name + "_id")
                 else:
@@ -416,14 +418,14 @@ Make sure that your model has a field named "changesets" that looks like this:
                 # get field
                 field = new_instance._meta.get_field(relation_field_name)
 
-                if hasattr(field, 'field') and field.field.rel:
+                if (hasattr(field, 'rel') and field.rel) or (hasattr(field, 'field') and field.field.rel):
                     new_value = serializers.serialize(
                         'json',
                         getattr_orm(new_instance, relation_field_name).filter(),
                         fields=relation_track_fields
                     )
                 else:
-                    logger.error("track_related_many field '{}' is not a relation")
+                    logger.error("track_related_many field '{}' is not a relation".format(relation_field_name))
                     new_value = None
 
             except (ObjectDoesNotExist, ValueError):
@@ -654,9 +656,9 @@ Make sure that your model has a field named "changesets" that looks like this:
         # check if last changeset was created by the current user within the last couple of seconds
         if last_changeset \
                 and last_changeset.user == get_current_user() \
-                and last_changeset.date > timezone.now()-timezone.timedelta(
-                    seconds=getattr(new_instance._meta, 'aggregate_changesets_within_seconds', 0)
-                ):
+                and last_changeset.date > timezone.now() - timezone.timedelta(
+            seconds=getattr(new_instance._meta, 'aggregate_changesets_within_seconds', 0)
+        ):
             # overwrite the new_changeset
             logger.debug("Re-using last changeset")
             change_set = last_changeset
@@ -734,7 +736,8 @@ Make sure that your model has a field named "changesets" that looks like this:
                     # related field, get the id
                     if isinstance(field.rel, ManyToManyRel):
                         # many to many related fields are special, we need to fetch the IDs using the manager
-                        value = ",".join([str(item) for item in getattr(instance, field_name).all().values_list('id', flat=True)])
+                        value = ",".join(
+                            [str(item) for item in getattr(instance, field_name).all().values_list('id', flat=True)])
                     else:
                         value = getattr_orm(instance, field_name + "_id")
                 else:
@@ -753,14 +756,14 @@ Make sure that your model has a field named "changesets" that looks like this:
                 # get field
                 field = instance._meta.get_field(relation_field_name)
 
-                if hasattr(field, 'field') and field.field.rel:
+                if (hasattr(field, 'rel') and field.rel) or (hasattr(field, 'field') and field.field.rel):
                     value = serializers.serialize(
                         'json',
                         getattr_orm(instance, relation_field_name).filter(),
                         fields=relation_track_fields
                     )
                 else:
-                    logger.error("track_related_many field '{}' is not a relation")
+                    logger.error("track_related_many field '{}' is not a relation".format(relation_field_name))
                     value = None
 
             except (ObjectDoesNotExist, ValueError):
