@@ -8,7 +8,7 @@ Django ChangeSet
 Django ChangeSet is a simple Django app that will give your models the possibility to track all changes. It depends on
 ``django_userforeignkey`` to determine the current user doing the change(s).
 
-Currently, Django 1.11, 2.0 and 2.1 are supported and tested via travis-ci.
+Currently, Django 2.2 and 3.0 are supported and tested via travis-ci.
 
 Detailed documentation is in the docs subdirectory.
 
@@ -156,7 +156,7 @@ Maintainers
 This repository is currently maintained by
 
 - beachmachine
-- ChristianKreuzberger
+- anx-mpoelzl
 
 Pull Requests are welcome.
 
@@ -171,3 +171,4 @@ Changelog / Release History
 
 1.0.0rc3 - August 2018 - First feature complete release (release candidate)
 1.0.0rc4 - October 2018 - Added tracking for generic relations and improved logging (release candidate)
+1.1.0 - January 2020 - Added support for Django 2.2 and 3.0 and dropped support for releases prior to 2.2
