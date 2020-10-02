@@ -242,9 +242,9 @@ Make sure that your model has a field named "changesets" that looks like this:
                 # check if is foreign key --> if yes, only get the id (--> not a db lookup)
                 field = self._meta.get_field(field_name)
 
-                if hasattr(field, 'rel') and field.rel:
+                if hasattr(field, 'remote_field') and field.remote_field:
                     # related field, get the id
-                    if isinstance(field.rel, ManyToManyRel):
+                    if isinstance(field.remote_field, ManyToManyRel):
                         # many to many related fields are special, we need to fetch the IDs using the manager
                         new_value = ",".join(
                             [str(item) for item in getattr(self, field_name).all().values_list('id', flat=True)])
@@ -270,7 +270,7 @@ Make sure that your model has a field named "changesets" that looks like this:
                 # get field
                 field = self._meta.get_field(relation_field_name)
 
-                if (hasattr(field, 'rel') and field.rel) or (hasattr(field, 'field') and field.field.rel):
+                if (hasattr(field, 'remote_field') and field.remote_field) or (hasattr(field, 'field') and field.field.remote_field):
                     new_value = serializers.serialize(
                         'json',
                         getattr_orm(self, relation_field_name).filter(),
@@ -395,9 +395,9 @@ Make sure that your model has a field named "changesets" that looks like this:
                 # check if is foreign key --> if yes, only get the id (--> not a db lookup)
                 field = new_instance._meta.get_field(field_name)
 
-                if hasattr(field, 'rel') and field.rel:
+                if hasattr(field, 'remote_field') and field.remote_field:
                     # related field, get the id
-                    if isinstance(field.rel, ManyToManyRel):
+                    if isinstance(field.remote_field, ManyToManyRel):
                         # many to many related fields are special, we need to fetch the IDs using the manager
                         new_value = ",".join([str(item) for item in
                                               getattr(new_instance, field_name).all().values_list('id', flat=True)])
@@ -418,7 +418,8 @@ Make sure that your model has a field named "changesets" that looks like this:
                 # get field
                 field = new_instance._meta.get_field(relation_field_name)
 
-                if (hasattr(field, 'rel') and field.rel) or (hasattr(field, 'field') and field.field.rel):
+                if (hasattr(field, 'remote_field') and field.remote_field) or \
+                        (hasattr(field, 'field') and field.field.remote_field):
                     new_value = serializers.serialize(
                         'json',
                         getattr_orm(new_instance, relation_field_name).filter(),
@@ -732,9 +733,9 @@ Make sure that your model has a field named "changesets" that looks like this:
                 # check if is foreign key --> if yes, get id
                 field = instance._meta.get_field(field_name)
 
-                if hasattr(field, 'rel') and field.rel:
+                if hasattr(field, 'remote_field') and field.remote_field:
                     # related field, get the id
-                    if isinstance(field.rel, ManyToManyRel):
+                    if isinstance(field.remote_field, ManyToManyRel):
                         # many to many related fields are special, we need to fetch the IDs using the manager
                         value = ",".join(
                             [str(item) for item in getattr(instance, field_name).all().values_list('id', flat=True)])
@@ -756,7 +757,8 @@ Make sure that your model has a field named "changesets" that looks like this:
                 # get field
                 field = instance._meta.get_field(relation_field_name)
 
-                if (hasattr(field, 'rel') and field.rel) or (hasattr(field, 'field') and field.field.rel):
+                if (hasattr(field, 'remote_field') and field.remote_field) or \
+                        (hasattr(field, 'field') and field.field.remote_field):
                     value = serializers.serialize(
                         'json',
                         getattr_orm(instance, relation_field_name).filter(),

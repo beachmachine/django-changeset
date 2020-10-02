@@ -234,7 +234,7 @@ class ChangeRecord(models.Model):
     def _get_related_class(self):
         field = self._get_field(supress_warning=True) # get the field, but dont log a warning
         if field:
-            return field.rel.to
+            return field.remote_field.to
 
         relation = self._get_relation()
         if relation:
@@ -268,7 +268,7 @@ class ChangeRecord(models.Model):
         field = self._get_field(supress_warning=True)
 
         if field and isinstance(field, models.ForeignKey):
-            return self._get_object_or_none(field.rel.to, pk=self.old_value)
+            return self._get_object_or_none(field.remote_field.to, pk=self.old_value)
         elif field and hasattr(field, 'flatchoices'):
             return force_text(dict(field.flatchoices).get(self.old_value, self.old_value), strings_only=True)
 
@@ -280,7 +280,7 @@ class ChangeRecord(models.Model):
         field = self._get_field(supress_warning=True)
 
         if field and isinstance(field, models.ForeignKey):
-            return self._get_object_or_none(field.rel.to, pk=self.new_value)
+            return self._get_object_or_none(field.remote_field.to, pk=self.new_value)
         elif field and hasattr(field, 'flatchoices'):
             return force_text(dict(field.flatchoices).get(self.new_value, self.new_value), strings_only=True)
 
