@@ -13,6 +13,7 @@ setup(
     version=os.getenv('PACKAGE_VERSION', '0.0.0').replace('refs/tags/', ''),
     packages=find_packages(),
     include_package_data=True,
+    long_description_content_type='text/markdown',
     license='BSD License',
     description='A simple Django app that will give your models the possibility to track all changes.',
     long_description=README,
