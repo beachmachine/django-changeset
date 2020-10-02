@@ -2,13 +2,17 @@
 Django ChangeSet
 ================
 
-.. image:: https://travis-ci.org/beachmachine/django-changeset.svg?branch=master
-    :target: https://travis-ci.org/beachmachine/django-changeset
+.. image:: https://github.com/beachmachine/django-changeset/workflows/Linter%20and%20tests/badge.svg
+    :target: https://github.com/beachmachine/django-changeset/actions
+    :alt: Linter and tests
+.. image:: https://img.shields.io/codecov/c/gh/beachmachine/django-changeset
+    :target: https://codecov.io/gh/beachmachine/django-changeset
+    :alt: Codecov
 
 Django ChangeSet is a simple Django app that will give your models the possibility to track all changes. It depends on
 ``django_userforeignkey`` to determine the current user doing the change(s).
 
-Currently, Django 1.11, 2.0 and 2.1 are supported and tested via travis-ci.
+Currently, Django 1.11, 2.0 and 2.1 are supported and tested via GitHub Actions.
 
 Detailed documentation is in the docs subdirectory.
 
