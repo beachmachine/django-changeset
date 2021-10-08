@@ -1,26 +1,19 @@
 import datetime
-from django.contrib.auth.models import AnonymousUser, User
 
-try:
-    # Django 1.10 and above
-    from django.urls import reverse
-except:
-    # Django 1.8 and 1.9
-    from django.core.urlresolvers import reverse
-
-from django.utils import timezone
-from django.test import TestCase
+from django.contrib.auth.models import User
 from django.test import Client
+from django.test import TestCase
+from django.urls import reverse
+from django.utils import timezone
 
-
-from .models import Poll, Choice, ActualVote
+from .models import ActualVote, Choice, Poll
 
 
 class GeneralAuthTest(TestCase):
     def test_auth_fail(self):
         c = Client()
         response = c.post(reverse('login'), {'username': 'thisuserdoes', 'password': 'notexist'})
-        self.assertEqual(response.status_code, 200) # should fail
+        self.assertEqual(response.status_code, 200)  # should fail
         self.assertContains(response, "Your username and password didn't match. Please try again")
 
 
@@ -50,20 +43,22 @@ class PollMethodTests(TestCase):
         self.assertEqual(recent_poll.was_published_recently(), True)
 
 
-def create_poll(question, days=0, choices=[]):
+def create_poll(question, days=0, choices=None):
     """
     Creates a poll with the given `question` published the given number of
     `days` offset to now (negative for polls published in the past,
     positive for polls that have yet to be published).
     """
-    p =  Poll.objects.create(
+    choices = [] if choices is None else choices
+
+    p = Poll.objects.create(
         question=question,
         pub_date=timezone.now() + datetime.timedelta(days=days)
     )
 
     if len(choices) > 0:
         for choice in choices:
-            c = Choice.objects.create(
+            Choice.objects.create(
                 poll=p,
                 choice_text=choice,
             )
@@ -167,7 +162,7 @@ class PollVoteTests(TestCase):
 
         choices = Choice.objects.filter(poll=poll)
 
-        site = reverse('polls:vote', args=(poll.id, ))
+        site = reverse('polls:vote', args=(poll.id,))
 
         response = self.client.get(site, {'choice': choices[0].id}, )
 
@@ -187,18 +182,17 @@ class PollVoteTests(TestCase):
 
         c = Client()
         response = c.post(reverse("login"), {'username': 'johndoe', 'password': 'top_secret'})
-        self.assertEqual(response.status_code, 302) # should work
+        self.assertEqual(response.status_code, 302)  # should work
         self.assertTrue("/accounts/profile/" in response.url)
 
         response = c.post(site, {'choice': choices[0].id}, )
-        self.assertEqual(response.status_code, 302) # should work
+        self.assertEqual(response.status_code, 302)  # should work
         self.assertTrue("/results/" in response.url)
 
         c = Client()
         response = c.post(reverse("login"), {'username': 'homersimpson', 'password': 'top_secret'})
         self.assertEqual(response.status_code, 302)  # should work
         self.assertTrue("/accounts/profile/" in response.url)
-
 
         response = c.post(site, {'choice': choices[1].id}, )
         self.assertEqual(response.status_code, 302)  # should work
@@ -225,7 +219,6 @@ class PollVoteTests(TestCase):
         self.assertTrue(votes[0].user == self.user1)
         self.assertTrue(votes[1].user == self.user2)
         self.assertTrue(votes[2].user == self.user3)
-
 
     def test_vote_poll_multivote(self):
         """

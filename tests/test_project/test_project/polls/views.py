@@ -1,18 +1,12 @@
-try:
-    # Django 1.10 and above
-    from django.urls import reverse
-except:
-    # Django 1.8 and 1.9
-    from django.core.urlresolvers import reverse
-
-from django.http import HttpResponseRedirect, HttpResponse, HttpResponseNotFound
+from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
+from django.http import HttpResponse, HttpResponseRedirect
 from django.shortcuts import get_object_or_404, render
+from django.urls import reverse
 from django.utils import timezone
 from django.views import generic
-from django.contrib.auth import authenticate, login, logout
 
-from .models import Choice, Poll, ActualVote
+from .models import ActualVote, Choice, Poll
 
 
 class IndexView(generic.ListView):
