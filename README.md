@@ -157,10 +157,3 @@ License
 -------
 
 Django ChangeSet uses the BSD-3 Clause License, see LICENSE file.
-
-Changelog / Release History
----------------------------
-
-1.0.0rc3 - August 2018 - First feature complete release (release candidate)  
-1.0.0rc4 - October 2018 - Added tracking for generic relations and improved logging (release candidate)  
-1.0.0 - October 2020 - Added support for Django 2.2 and 3.0 and dropped support for releases prior to 2.2
