@@ -27,7 +27,6 @@ class Poll(models.Model):
     was_published_recently.short_description = 'Published recently?'
 
 
-
 class Choice(models.Model):
     poll = models.ForeignKey(Poll, verbose_name="Which poll?", related_name="choices", on_delete=models.CASCADE)
     choice_text = models.CharField(max_length=200)
@@ -40,9 +39,7 @@ class Choice(models.Model):
         return self.choice_text
 
 
-
 class ActualVote(models.Model):
     poll = models.ForeignKey(Poll, verbose_name="Which question has been voted for?", on_delete=models.CASCADE)
     choice = models.ForeignKey(Choice, verbose_name="Which choice was chosen?", on_delete=models.CASCADE)
     user = UserForeignKey(auto_user_add=True, verbose_name="Which user has voted?", related_name="actual_votes")
-

@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import Choice, Poll, ActualVote
+from .models import ActualVote, Choice, Poll
 
 
 class ChoiceInline(admin.TabularInline):
@@ -14,6 +14,7 @@ class PollAdmin(admin.ModelAdmin):
     list_filter = ['pub_date']
     search_fields = ['question']
     date_hierarchy = 'pub_date'
+
 
 admin.site.register(Poll, PollAdmin)
 admin.site.register(Choice)
