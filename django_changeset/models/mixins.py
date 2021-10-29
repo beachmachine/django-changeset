@@ -12,7 +12,7 @@ from django.db.models.signals import pre_save, post_save, post_init, m2m_changed
 from django.contrib.contenttypes.models import ContentType
 from django.core.exceptions import ObjectDoesNotExist
 from django.utils import timezone
-from django.utils.translation import ugettext_lazy as _
+from django.utils.translation import gettext_lazy as _
 
 from django_userforeignkey.request import get_current_user
 from django_userforeignkey.models.fields import UserForeignKey
