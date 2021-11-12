@@ -6,7 +6,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 PyPi: [https://pypi.org/project/django-changeset/](https://pypi.org/project/django-changeset/).
 
-## [1.1.0 - unreleased]
+## [1.1.0]
+### Added
+- Added support for Django 3.2
+- Added support for Python 3.9 and 3.10
+### Removed
+- Dropped support for Django 3.0
+- Dropped support for Python 3.5 and 3.6
+### Fixed
+- Fixed gettext imports for future Django 4.0 release
 
 ## [1.0.0]
 ### Added
@@ -93,7 +101,8 @@ PyPi: [https://pypi.org/project/django-changeset/](https://pypi.org/project/djan
 ## [0.1]
 Legacy release with examples, documentation and tests
 
-[1.1.0 - unreleased]: https://github.com/beachmachine/django-changeset/compare/1.0.0...HEAD
+[1.2.0 - unreleased]: https://github.com/beachmachine/django-changeset/compare/1.1.0...HEAD
+[1.1.0]: https://github.com/beachmachine/django-changeset/compare/1.0.0...1.1.0
 [1.0.0]: https://github.com/beachmachine/django-changeset/compare/1.0rc3...1.0.0
 [1.0rc4]: https://github.com/beachmachine/django-changeset/compare/1.0rc3...1.0rc4
 [1.0rc3]: https://github.com/beachmachine/django-changeset/compare/1.0rc2...1.0rc3
