@@ -1,6 +1,5 @@
 from django_userforeignkey.request import get_current_user
 from django.contrib.contenttypes.models import ContentType
-from django_changeset.models import ChangeSet
 
 
 def get_content_type_of(model):
@@ -12,7 +11,7 @@ def get_content_type_of(model):
     """
     # if we are working on a deferred proxy class, we first need to get
     # the real model class, so we can save a new instance if we need.
-    if getattr(model, '_deferred', False):
+    if getattr(model, "_deferred", False):
         model = model.__mro__[1]
 
     try:
@@ -21,32 +20,32 @@ def get_content_type_of(model):
         return None
 
 
-class ChangeSetQuerySetMixin(object):
-    """ This is a mixin for QuerySets which is supposed to return a filter with all objects created, updated or (soft)
-        deleted by the current user. The (soft) deleted option is only available if you also implemented (soft) delete
-        (TODO).
+class ChangeSetQuerySetMixin:
+    """This is a mixin for QuerySets which is supposed to return a filter with all objects created, updated or (soft)
+    deleted by the current user. The (soft) deleted option is only available if you also implemented (soft) delete
+    (TODO).
 
-        To extend an existing queryset with this mixin, use it as follows:
+    To extend an existing queryset with this mixin, use it as follows:
 
-        from django_changeset.models.querysets import ChangeSetQuerySetMixin
-        from django.db.models import QuerySet
+    from django_changeset.models.querysets import ChangeSetQuerySetMixin
+    from django.db.models import QuerySet
 
-        class MyModelQuerySet(QuerySet, ChangeSetQuerySetMixin):
-            pass
-
-
-        You also need to tell your model that you want to use the manager with this new queryset
-
-        class MyModel:
-            ...
-            objects = models.Manager.from_queryset(MyModelQuerySet)()
+    class MyModelQuerySet(QuerySet, ChangeSetQuerySetMixin):
+        pass
 
 
-        You can then use it as follows:
+    You also need to tell your model that you want to use the manager with this new queryset
 
-        qs_created = MyModel.objects.created_by_current_user()
-        qs_updated = MyModel.objects.updated_by_current_user()
-        qs_deleted = MyModel.objects.deleted_by_current_user() # this last one does not work yet (TODO)
+    class MyModel:
+        ...
+        objects = models.Manager.from_queryset(MyModelQuerySet)()
+
+
+    You can then use it as follows:
+
+    qs_created = MyModel.objects.created_by_current_user()
+    qs_updated = MyModel.objects.updated_by_current_user()
+    qs_deleted = MyModel.objects.deleted_by_current_user() # this last one does not work yet (TODO)
 
     """
 

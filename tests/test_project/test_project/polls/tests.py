@@ -12,9 +12,15 @@ from .models import ActualVote, Choice, Poll
 class GeneralAuthTest(TestCase):
     def test_auth_fail(self):
         c = Client()
-        response = c.post(reverse('login'), {'username': 'thisuserdoes', 'password': 'notexist'})
+        response = c.post(
+            reverse("login"),
+            {"username": "thisuserdoes", "password": "notexist"},
+        )
         self.assertEqual(response.status_code, 200)  # should fail
-        self.assertContains(response, "Your username and password didn't match. Please try again")
+        self.assertContains(
+            response,
+            "Your username and password didn't match. Please try again",
+        )
 
 
 class PollMethodTests(TestCase):
@@ -53,7 +59,7 @@ def create_poll(question, days=0, choices=None):
 
     p = Poll.objects.create(
         question=question,
-        pub_date=timezone.now() + datetime.timedelta(days=days)
+        pub_date=timezone.now() + datetime.timedelta(days=days),
     )
 
     if len(choices) > 0:
@@ -67,24 +73,27 @@ def create_poll(question, days=0, choices=None):
 
 
 class PollViewTests(TestCase):
+    def assertPollReprListEqual(self, queryset, expected):
+        self.assertEqual([repr(obj) for obj in queryset], expected)
+
     def test_index_view_with_no_polls(self):
         """
         If no polls exist, an appropriate message should be displayed.
         """
-        response = self.client.get(reverse('polls:index'))
+        response = self.client.get(reverse("polls:index"))
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "No polls are available.")
-        self.assertQuerysetEqual(response.context['latest_poll_list'], [])
+        self.assertPollReprListEqual(response.context["latest_poll_list"], [])
 
     def test_index_view_with_a_past_poll(self):
         """
         Polls with a pub_date in the past should be displayed on the index page.
         """
         create_poll(question="Past poll.", days=-30)
-        response = self.client.get(reverse('polls:index'))
-        self.assertQuerysetEqual(
-            response.context['latest_poll_list'],
-            ['<Poll: Past poll.>']
+        response = self.client.get(reverse("polls:index"))
+        self.assertPollReprListEqual(
+            response.context["latest_poll_list"],
+            ["<Poll: Past poll.>"],
         )
 
     def test_index_view_with_a_future_poll(self):
@@ -93,9 +102,9 @@ class PollViewTests(TestCase):
         index page.
         """
         create_poll(question="Future poll.", days=30)
-        response = self.client.get(reverse('polls:index'))
+        response = self.client.get(reverse("polls:index"))
         self.assertContains(response, "No polls are available.", status_code=200)
-        self.assertQuerysetEqual(response.context['latest_poll_list'], [])
+        self.assertPollReprListEqual(response.context["latest_poll_list"], [])
 
     def test_index_view_with_future_poll_and_past_poll(self):
         """
@@ -104,10 +113,10 @@ class PollViewTests(TestCase):
         """
         create_poll(question="Past poll.", days=-30)
         create_poll(question="Future poll.", days=30)
-        response = self.client.get(reverse('polls:index'))
-        self.assertQuerysetEqual(
-            response.context['latest_poll_list'],
-            ['<Poll: Past poll.>']
+        response = self.client.get(reverse("polls:index"))
+        self.assertPollReprListEqual(
+            response.context["latest_poll_list"],
+            ["<Poll: Past poll.>"],
         )
 
     def test_index_view_with_two_past_polls(self):
@@ -116,10 +125,10 @@ class PollViewTests(TestCase):
         """
         create_poll(question="Past poll 1.", days=-30)
         create_poll(question="Past poll 2.", days=-5)
-        response = self.client.get(reverse('polls:index'))
-        self.assertQuerysetEqual(
-            response.context['latest_poll_list'],
-            ['<Poll: Past poll 2.>', '<Poll: Past poll 1.>']
+        response = self.client.get(reverse("polls:index"))
+        self.assertPollReprListEqual(
+            response.context["latest_poll_list"],
+            ["<Poll: Past poll 2.>", "<Poll: Past poll 1.>"],
         )
 
 
@@ -129,8 +138,8 @@ class PollIndexDetailTests(TestCase):
         The detail view of a poll with a pub_date in the future should
         return a 404 not found.
         """
-        future_poll = create_poll(question='Future poll.', days=5)
-        response = self.client.get(reverse('polls:detail', args=(future_poll.id,)))
+        future_poll = create_poll(question="Future poll.", days=5)
+        response = self.client.get(reverse("polls:detail", args=(future_poll.id,)))
         self.assertEqual(response.status_code, 404)
 
     def test_detail_view_with_a_past_poll(self):
@@ -138,33 +147,45 @@ class PollIndexDetailTests(TestCase):
         The detail view of a poll with a pub_date in the past should display
         the poll's question.
         """
-        past_poll = create_poll(question='Past Poll.', days=-5)
-        response = self.client.get(reverse('polls:detail', args=(past_poll.id,)))
+        past_poll = create_poll(question="Past Poll.", days=-5)
+        response = self.client.get(reverse("polls:detail", args=(past_poll.id,)))
         self.assertContains(response, past_poll.question, status_code=200)
 
 
 class PollVoteTests(TestCase):
     def setUp(self):
         self.user1 = User.objects.create_user(
-            username='johndoe', email='johndoe@mail.com', password='top_secret')
+            username="johndoe",
+            email="johndoe@mail.com",
+            password="top_secret",
+        )
 
         self.user2 = User.objects.create_user(
-            username='homersimpson', email='h.simpson@springfield.com', password='top_secret')
+            username="homersimpson",
+            email="h.simpson@springfield.com",
+            password="top_secret",
+        )
 
         self.user3 = User.objects.create_user(
-            username='mrburns', email='mrburns@aol.com', password='top_secret')
+            username="mrburns",
+            email="mrburns@aol.com",
+            password="top_secret",
+        )
 
     def test_vote_poll_anonymous(self):
         """
         Should not be allowed to vote when not logged in
         """
-        poll = create_poll(question='What is the question?', choices=['I dont know', 'Whatever', '42'])
+        poll = create_poll(
+            question="What is the question?",
+            choices=["I dont know", "Whatever", "42"],
+        )
 
         choices = Choice.objects.filter(poll=poll)
 
-        site = reverse('polls:vote', args=(poll.id,))
+        site = reverse("polls:vote", args=(poll.id,))
 
-        response = self.client.get(site, {'choice': choices[0].id}, )
+        response = self.client.get(site, {"choice": choices[0].id})
 
         self.assertEqual(response.status_code, 302)
         self.assertTrue("/results/" not in response.url)
@@ -172,38 +193,50 @@ class PollVoteTests(TestCase):
 
     def test_vote_poll_authed(self):
         """
-            Should be allowed to vote, and vote should count
+        Should be allowed to vote, and vote should count
         """
-        poll = create_poll(question='What is the question?', choices=['I dont know', 'Whatever', '42'])
+        poll = create_poll(
+            question="What is the question?",
+            choices=["I dont know", "Whatever", "42"],
+        )
 
         choices = Choice.objects.filter(poll=poll)
 
-        site = reverse('polls:vote', args=(poll.id,))
+        site = reverse("polls:vote", args=(poll.id,))
 
         c = Client()
-        response = c.post(reverse("login"), {'username': 'johndoe', 'password': 'top_secret'})
+        response = c.post(
+            reverse("login"),
+            {"username": "johndoe", "password": "top_secret"},
+        )
         self.assertEqual(response.status_code, 302)  # should work
         self.assertTrue("/accounts/profile/" in response.url)
 
-        response = c.post(site, {'choice': choices[0].id}, )
+        response = c.post(site, {"choice": choices[0].id})
         self.assertEqual(response.status_code, 302)  # should work
         self.assertTrue("/results/" in response.url)
 
         c = Client()
-        response = c.post(reverse("login"), {'username': 'homersimpson', 'password': 'top_secret'})
+        response = c.post(
+            reverse("login"),
+            {"username": "homersimpson", "password": "top_secret"},
+        )
         self.assertEqual(response.status_code, 302)  # should work
         self.assertTrue("/accounts/profile/" in response.url)
 
-        response = c.post(site, {'choice': choices[1].id}, )
+        response = c.post(site, {"choice": choices[1].id})
         self.assertEqual(response.status_code, 302)  # should work
         self.assertTrue("/results/" in response.url)
 
         c = Client()
-        response = c.post(reverse("login"), {'username': 'mrburns', 'password': 'top_secret'})
+        response = c.post(
+            reverse("login"),
+            {"username": "mrburns", "password": "top_secret"},
+        )
         self.assertEqual(response.status_code, 302)  # should work
         self.assertTrue("/accounts/profile/" in response.url)
 
-        response = c.post(site, {'choice': choices[0].id}, )
+        response = c.post(site, {"choice": choices[0].id})
         self.assertEqual(response.status_code, 302)  # should work
         self.assertTrue("/results/" in response.url)
 
@@ -222,33 +255,39 @@ class PollVoteTests(TestCase):
 
     def test_vote_poll_multivote(self):
         """
-            Should be allowed to vote, and vote should count
+        Should be allowed to vote, and vote should count
         """
-        poll = create_poll(question='What is the question?', choices=['I dont know', 'Whatever', '42'])
+        poll = create_poll(
+            question="What is the question?",
+            choices=["I dont know", "Whatever", "42"],
+        )
 
         choices = Choice.objects.filter(poll=poll)
 
-        site = reverse('polls:vote', args=(poll.id,))
+        site = reverse("polls:vote", args=(poll.id,))
 
         c = Client()
-        response = c.post(reverse("login"), {'username': 'johndoe', 'password': 'top_secret'})
+        response = c.post(
+            reverse("login"),
+            {"username": "johndoe", "password": "top_secret"},
+        )
         self.assertEqual(response.status_code, 302)  # should work
         self.assertTrue("/accounts/profile/" in response.url)
 
-        response = c.post(site, {'choice': choices[0].id}, )
+        response = c.post(site, {"choice": choices[0].id})
         self.assertEqual(response.status_code, 302)  # should work
         self.assertTrue("/results/" in response.url)
 
         # vote again
-        response = c.post(site, {'choice': choices[1].id}, )
+        response = c.post(site, {"choice": choices[1].id})
         self.assertContains(response, "You already voted", status_code=200)
 
         # vote again
-        response = c.post(site, {'choice': choices[2].id}, )
+        response = c.post(site, {"choice": choices[2].id})
         self.assertContains(response, "You already voted", status_code=200)
 
         # vote again
-        response = c.post(site, {'choice': choices[0].id}, )
+        response = c.post(site, {"choice": choices[0].id})
         self.assertContains(response, "You already voted", status_code=200)
 
         # check if ActualVotes is there (should only be 1 vote)

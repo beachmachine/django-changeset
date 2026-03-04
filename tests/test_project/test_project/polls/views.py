@@ -10,8 +10,8 @@ from .models import ActualVote, Choice, Poll
 
 
 class IndexView(generic.ListView):
-    template_name = 'polls/index.html'
-    context_object_name = 'latest_poll_list'
+    template_name = "polls/index.html"
+    context_object_name = "latest_poll_list"
 
     def get_queryset(self):
         """
@@ -19,13 +19,13 @@ class IndexView(generic.ListView):
         published in the future).
         """
         return Poll.objects.filter(
-            pub_date__lte=timezone.now()
-        ).order_by('-pub_date')[:5]
+            pub_date__lte=timezone.now(),
+        ).order_by("-pub_date")[:5]
 
 
 class DetailView(generic.DetailView):
     model = Poll
-    template_name = 'polls/detail.html'
+    template_name = "polls/detail.html"
 
     def get_queryset(self):
         """
@@ -36,30 +36,38 @@ class DetailView(generic.DetailView):
 
 class ResultsView(generic.DetailView):
     model = Poll
-    template_name = 'polls/results.html'
+    template_name = "polls/results.html"
 
 
 @login_required
 def vote(request, poll_id):
     p = get_object_or_404(Poll, pk=poll_id)
 
-    if 'choice' not in request.POST:
-        return HttpResponseRedirect(reverse('polls:detail', args=(p.id,)))
+    if "choice" not in request.POST:
+        return HttpResponseRedirect(reverse("polls:detail", args=(p.id,)))
     else:
         try:
-            selected_choice = p.choices.get(pk=request.POST['choice'])
+            selected_choice = p.choices.get(pk=request.POST["choice"])
         except (KeyError, Choice.DoesNotExist):
             # Redisplay the poll voting form.
-            return render(request, 'polls/detail.html', {
-                'poll': p,
-                'error_message': "Error: You didn't select a valid choice.",
-            })
+            return render(
+                request,
+                "polls/detail.html",
+                {
+                    "poll": p,
+                    "error_message": "Error: You didn't select a valid choice.",
+                },
+            )
         else:
             if len(ActualVote.objects.filter(poll=p, user=request.user)) > 0:
-                return render(request, 'polls/detail.html', {
-                    'poll': p,
-                    'error_message': "Error: You already voted!",
-                })
+                return render(
+                    request,
+                    "polls/detail.html",
+                    {
+                        "poll": p,
+                        "error_message": "Error: You already voted!",
+                    },
+                )
             else:
                 selected_choice.votes += 1
                 selected_choice.save()
@@ -72,28 +80,28 @@ def vote(request, poll_id):
                 # Always return an HttpResponseRedirect after successfully dealing
                 # with POST data. This prevents data from being posted twice if a
                 # user hits the Back button.
-                return HttpResponseRedirect(reverse('polls:results', args=(p.id,)))
+                return HttpResponseRedirect(reverse("polls:results", args=(p.id,)))
 
 
 def login_view(request):
-    if 'username' in request.POST and 'password' in request.POST:
-        username = request.POST['username']
-        password = request.POST['password']
+    if "username" in request.POST and "password" in request.POST:
+        username = request.POST["username"]
+        password = request.POST["password"]
         user = authenticate(username=username, password=password)
         if user is not None:
             if user.is_active:
                 login(request, user)
-                return HttpResponseRedirect(reverse('polls:index'))
+                return HttpResponseRedirect(reverse("polls:index"))
             else:
                 # Return a 'disabled account' error message
-                return HttpResponse('Error: Account disabled', status=403)
+                return HttpResponse("Error: Account disabled", status=403)
         else:
             # Return an 'invalid login' error message.
-            return HttpResponse('Error: Invalid Login', status=403)
+            return HttpResponse("Error: Invalid Login", status=403)
     else:
-        return render(request, 'polls/templates/registration/login.html')
+        return render(request, "polls/templates/registration/login.html")
 
 
 def logout_view(request):
     logout(request)
-    return HttpResponseRedirect(reverse('polls:index'))
+    return HttpResponseRedirect(reverse("polls:index"))

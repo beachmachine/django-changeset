@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-from __future__ import unicode_literals
 import logging
 import uuid
 
@@ -8,98 +6,114 @@ from django.contrib.contenttypes.models import ContentType
 from django.conf import settings
 
 from django.utils.translation import gettext_lazy as _
-from django.utils.encoding import force_text
+
+try:
+    from django.utils.encoding import force_str as force_text
+except ImportError:  # pragma: no cover
+    from django.utils.encoding import force_text
 
 from django_userforeignkey.models.fields import UserForeignKey
 
 logger = logging.getLogger(__name__)
 
-changeset_related_object = getattr(settings, "DJANGO_CHANGESET_SELECT_RELATED", ["user"])
+changeset_related_object = getattr(
+    settings,
+    "DJANGO_CHANGESET_SELECT_RELATED",
+    ["user"],
+)
 
 
 class ChangeSetManager(models.Manager):
     """
     ChangeSet Manager that forces all ChangeSet queries to contain at least the "user" foreign relation
     """
+
     def get_queryset(self):
-        return super(ChangeSetManager, self).get_queryset().select_related(
-            *changeset_related_object
+        return (
+            super()
+            .get_queryset()
+            .select_related(
+                *changeset_related_object,
+            )
         )
 
 
 class AbstractChangeSet(models.Model):
-    """ Basic changeset/revision model which contains the ``user`` that modified the object ``object_type`` """
+    """Basic changeset/revision model which contains the ``user`` that modified the object ``object_type``"""
+
     objects = ChangeSetManager()
 
     # choices for changeset type (insert, update, delete)
-    INSERT_TYPE = 'I'
-    UPDATE_TYPE = 'U'
-    DELETE_TYPE = 'D'
-    SOFT_DELETE_TYPE = 'S'
-    RESTORE_TYPE = 'R'
+    INSERT_TYPE = "I"
+    UPDATE_TYPE = "U"
+    DELETE_TYPE = "D"
+    SOFT_DELETE_TYPE = "S"
+    RESTORE_TYPE = "R"
 
     CHANGESET_TYPE_CHOICES = (
-        (INSERT_TYPE, 'Insert'),
-        (UPDATE_TYPE, 'Update'),
-        (DELETE_TYPE, 'Delete'),
-        (SOFT_DELETE_TYPE, 'Soft Delete'),
-        (RESTORE_TYPE, 'Restore')
+        (INSERT_TYPE, "Insert"),
+        (UPDATE_TYPE, "Update"),
+        (DELETE_TYPE, "Delete"),
+        (SOFT_DELETE_TYPE, "Soft Delete"),
+        (RESTORE_TYPE, "Restore"),
     )
 
     id = models.UUIDField(
         primary_key=True,
         default=uuid.uuid4,
         editable=False,
-        verbose_name=_(u"Primary Key as Python UUID4 Field")
+        verbose_name=_("Primary Key as Python UUID4 Field"),
     )
 
     changeset_type = models.CharField(
         max_length=1,
-        verbose_name=_(u"Changeset Type"),
+        verbose_name=_("Changeset Type"),
         choices=CHANGESET_TYPE_CHOICES,
         default=INSERT_TYPE,
         editable=False,
         null=False,
-        db_index=True
+        db_index=True,
     )
 
     date = models.DateTimeField(
-        verbose_name=_(u"Date"),
+        verbose_name=_("Date"),
         auto_now_add=True,
         editable=False,
         null=False,
-        db_index=True
+        db_index=True,
     )
 
     # track the user that triggered this change
     user = UserForeignKey(
-        verbose_name=_(u"User"),
+        verbose_name=_("User"),
         auto_user_add=True,
-        related_name="all_changes", # allows to access userobj.all_changes
+        related_name="all_changes",  # allows to access userobj.all_changes
     )
 
     object_type = models.ForeignKey(
         ContentType,
-        verbose_name=_(u"Object type"),
+        verbose_name=_("Object type"),
         editable=False,
         null=False,
-        on_delete=models.CASCADE
+        on_delete=models.CASCADE,
     )
 
     class Meta:
-        app_label = 'django_changeset'
-        get_latest_by = 'date'
-        ordering = ['-date', ]
+        app_label = "django_changeset"
+        get_latest_by = "date"
+        ordering = ["-date"]
         abstract = True
 
     def __unicode__(self):
-        return _(u"%(changeset_type)s on %(app_label)s.%(model)s %(uuid)s at date %(date)s by %(user)s") % {
-            'changeset_type': self.get_changeset_type_display(),
-            'app_label': self.object_type.app_label,
-            'model': self.object_type.model,
-            'uuid': self.object_uuid,
-            'date': self.date,
-            'user': self.user,
+        return _(
+            "%(changeset_type)s on %(app_label)s.%(model)s %(uuid)s at date %(date)s by %(user)s",
+        ) % {
+            "changeset_type": self.get_changeset_type_display(),
+            "app_label": self.object_type.app_label,
+            "model": self.object_type.model,
+            "uuid": self.object_uuid,
+            "date": self.date,
+            "user": self.user,
         }
 
     def __str__(self):
@@ -108,14 +122,14 @@ class AbstractChangeSet(models.Model):
 
 class ChangeSet(AbstractChangeSet):
     object_id = models.BigIntegerField(
-        verbose_name=_(u"Object ID"),
+        verbose_name=_("Object ID"),
         editable=False,
         null=True,
         db_index=True,
     )
 
     object_uuid = models.UUIDField(
-        verbose_name=_(u"Object UUID"),
+        verbose_name=_("Object UUID"),
         editable=False,
         null=True,
         db_index=True,
@@ -123,7 +137,7 @@ class ChangeSet(AbstractChangeSet):
 
 
 class ChangeRecord(models.Model):
-    """ A change_record represents detailed change information, like which field was changed and what the old aswell as
+    """A change_record represents detailed change information, like which field was changed and what the old aswell as
     the new value of the field look like. It is related to a ``change_set``.
     """
 
@@ -131,7 +145,7 @@ class ChangeRecord(models.Model):
         primary_key=True,
         default=uuid.uuid4,
         editable=False,
-        verbose_name=_(u"Primary Key as Python UUID4 Field")
+        verbose_name=_("Primary Key as Python UUID4 Field"),
     )
 
     change_set = models.ForeignKey(
@@ -139,47 +153,47 @@ class ChangeRecord(models.Model):
         related_name="change_records",
         null=False,
         editable=False,
-        on_delete=models.CASCADE
+        on_delete=models.CASCADE,
     )
 
     field_name = models.CharField(
-        verbose_name=_(u"Field name"),
+        verbose_name=_("Field name"),
         max_length=255,
         editable=False,
         null=False,
     )
 
     old_value = models.TextField(
-        verbose_name=_(u"Old value"),
+        verbose_name=_("Old value"),
         editable=False,
         null=True,
         blank=True,
     )
 
     new_value = models.TextField(
-        verbose_name=_(u"New value"),
+        verbose_name=_("New value"),
         editable=False,
         null=True,
         blank=True,
     )
 
     is_related = models.BooleanField(
-        verbose_name=_(u"Is change on related entity"),
+        verbose_name=_("Is change on related entity"),
         editable=False,
         null=False,
         default=False,
     )
 
     class Meta:
-        app_label = 'django_changeset'
-        get_latest_by = 'change_set__date'
-        ordering = ['-change_set__date', 'field_name', ]
+        app_label = "django_changeset"
+        get_latest_by = "change_set__date"
+        ordering = ["-change_set__date", "field_name"]
 
     def __unicode__(self):
-        return _(u"%(label)s: '%(from)s' to '%(to)s'") % {
-            'label': force_text(self.field_verbose_name),
-            'from': force_text(self.old_value_display),
-            'to': force_text(self.new_value_display),
+        return _("%(label)s: '%(from)s' to '%(to)s'") % {
+            "label": force_text(self.field_verbose_name),
+            "from": force_text(self.old_value_display),
+            "to": force_text(self.new_value_display),
         }
 
     def __str__(self):
@@ -197,10 +211,12 @@ class ChangeRecord(models.Model):
         try:
             return related_class.objects.get(pk=self.new_value)
         except related_class.DoesNotExist:
-            logger.warning(u"Related object of model '%(model)s' with pk '%(pk)s' does not exist." % {
-                'model': force_text(related_class),
-                'pk': force_text(self.new_value),
-            })
+            logger.warning(
+                "Related object of model '{model}' with pk '{pk}' does not exist.".format(
+                    model=force_text(related_class),
+                    pk=force_text(self.new_value),
+                ),
+            )
 
             return None
 
@@ -214,7 +230,10 @@ class ChangeRecord(models.Model):
 
         # no field for the field_name found
         if not supress_warning:
-            logger.warning(u"Field for this change record does not exist on model '%s'." % force_text(model_class))
+            logger.warning(
+                "Field for this change record does not exist on model '%s'."
+                % force_text(model_class),
+            )
 
         return None
 
@@ -227,12 +246,17 @@ class ChangeRecord(models.Model):
                 return rel
 
         # no relation for the field_name found
-        logger.warning(u"Relation for this change record does not exist on model '%s'." % force_text(model_class))
+        logger.warning(
+            "Relation for this change record does not exist on model '%s'."
+            % force_text(model_class),
+        )
 
         return None
 
     def _get_related_class(self):
-        field = self._get_field(supress_warning=True) # get the field, but dont log a warning
+        field = self._get_field(
+            supress_warning=True,
+        )  # get the field, but dont log a warning
         if field:
             return field.remote_field.to
 
@@ -250,38 +274,44 @@ class ChangeRecord(models.Model):
 
     @property
     def related_object(self):
-        """ returns the related object (only if the change was on a related entity; check obj.is_related) """
+        """returns the related object (only if the change was on a related entity; check obj.is_related)"""
         return self._get_related_object()
 
     @property
     def field_verbose_name(self):
-        """ returns the verbose name of the affected field """
+        """returns the verbose name of the affected field"""
         field = self._get_field(supress_warning=True)
 
         if field:
             return field.verbose_name
-        return self.field_name.capitalize().replace('_', ' ')
+        return self.field_name.capitalize().replace("_", " ")
 
     @property
     def old_value_display(self):
-        """ returns the old/original value (display) """
+        """returns the old/original value (display)"""
         field = self._get_field(supress_warning=True)
 
         if field and isinstance(field, models.ForeignKey):
             return self._get_object_or_none(field.remote_field.to, pk=self.old_value)
-        elif field and hasattr(field, 'flatchoices'):
-            return force_text(dict(field.flatchoices).get(self.old_value, self.old_value), strings_only=True)
+        elif field and hasattr(field, "flatchoices"):
+            return force_text(
+                dict(field.flatchoices).get(self.old_value, self.old_value),
+                strings_only=True,
+            )
 
         return self.old_value
 
     @property
     def new_value_display(self):
-        """ returns the new value (display) """
+        """returns the new value (display)"""
         field = self._get_field(supress_warning=True)
 
         if field and isinstance(field, models.ForeignKey):
             return self._get_object_or_none(field.remote_field.to, pk=self.new_value)
-        elif field and hasattr(field, 'flatchoices'):
-            return force_text(dict(field.flatchoices).get(self.new_value, self.new_value), strings_only=True)
+        elif field and hasattr(field, "flatchoices"):
+            return force_text(
+                dict(field.flatchoices).get(self.new_value, self.new_value),
+                strings_only=True,
+            )
 
         return self.new_value

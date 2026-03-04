@@ -1,5 +1,4 @@
-Django ChangeSet
-================
+# Django ChangeSet
 
 [![Linter and tests](https://github.com/beachmachine/django-changeset/workflows/Linter%20and%20tests/badge.svg)](https://github.com/beachmachine/django-changeset/actions)
 [![Codecov](https://img.shields.io/codecov/c/gh/beachmachine/django-changeset)](https://codecov.io/gh/beachmachine/django-changeset)
@@ -7,12 +6,12 @@ Django ChangeSet
 Django ChangeSet is a simple Django app that will give your models the possibility to track all changes. It depends on
 `django_userforeignkey` to determine the current user doing the change(s).
 
-Currently, Django 2.2 and 3.2 are supported and tested via GitHub Actions.
+Supported Python versions: 3.10 - 3.14.
+Supported Django versions: 5.2 and 6.0.
 
 Detailed documentation is in the docs subdirectory.
 
-Quick start
------------
+## Quick start
 
 1.  Use `pip` to install and download django-changeset (and `django-userforeignkey`):
 
@@ -43,10 +42,9 @@ MIDDLEWARE = (
 
 **Note**: Make sure to insert the `UserForeignKeyMiddleware` **after** Djangos `AuthenticationMiddleware`.
 
-Example usage
--------------
+## Example usage
 
-***Use `RevisionModelMixin` as a mixin class for your models and add the fields you want to track in the meta***
+**_Use `RevisionModelMixin` as a mixin class for your models and add the fields you want to track in the meta_**
 configuration using `track_fields` and `track_related`. Also add a generic relation to `ChangeSet` using
 `changesets = ChangeSetRelation()`:
 
@@ -102,19 +100,17 @@ class MyModel(BaseModel, RevisionModelMixin, CreatedModifiedByMixin):
     changesets = ChangeSetRelation()
 ```
 
-Querying ChangeSets via the changesets relation
------------------------------------------------
+## Querying ChangeSets via the changesets relation
 
 By inheriting from the `RevisionModelMixin` and `CreatedModifiedByMixin` mixins, and adding an attribute of type
 `ChangeSetRelation` (a `GenericRelation` for the changeset), the following features are added to your model:
 
--   Properties `created_by`, `created_at`, `last_modified_by`, `last_modified_at` are made available for each object
-    (`CreatedModifiedByMixin`)
--   Relation `changesets` is made available, allowing you to run queries like this one:
-    `MyModel.objects.filter(changesets__changeset_type='I', changesets__user__username='johndoe')`
+- Properties `created_by`, `created_at`, `last_modified_by`, `last_modified_at` are made available for each object
+  (`CreatedModifiedByMixin`)
+- Relation `changesets` is made available, allowing you to run queries like this one:
+  `MyModel.objects.filter(changesets__changeset_type='I', changesets__user__username='johndoe')`
 
-Access ChangeSets and ChangeRecords
------------------------------------
+## Access ChangeSets and ChangeRecords
 
 ToDo
 
@@ -143,17 +139,15 @@ for change_set in somemodel.changesets:
     print("-----")
 ```
 
-Maintainers
------------
+## Maintainers
 
 This repository is currently maintained by
 
--   beachmachine
--   anx-mpoelzl
+- beachmachine
+- mikelandzelo173
 
 Pull Requests are welcome.
 
-License
--------
+## License
 
 Django ChangeSet uses the BSD-3 Clause License, see LICENSE file.
